@@ -130,6 +130,55 @@ class myFITS:
 		
 		return data[indexZ,indexY,indexX]
 		
+	@staticmethod
+	def downTo2D(fitsFile,outPUT=None,overwrite=True):
+		"""
+		some files creaseted by Miriad is 3D, and there is only one axis in the third 
+		
+		this functino is used to transformd 3D to 2d 
+		"""
+		
+		if str.strip(fitsFile)=='':
+			print "Empty file, quitting...."
+			return 
+
+		if outPUT is None:
+			writeName="to2D_"+fitsFile
+ 
+		else:
+			writeName=outPUT
+		
+
+		fileExist=os.path.isfile(writeName)
+ 
+		
+		if overwrite and fileExist:
+			os.remove(writeName)
+			
+		if not overwrite and fileExist:
+			print "File exists, quitting..."
+			return 
+
+		#read file
+		hdu=fits.open(fitsFile)[0]		
+		
+		head=hdu.header
+		#wmap=WCS(hdu.header)
+		data=hdu.data
+		
+		data=data[0]
+		
+		del head["CRPIX3"]
+		del head["CDELT3"]
+		del head["CRVAL3"]
+		del head["CTYPE3"] 
+		
+		#writefits
+
+		
+		
+		
+		fits.writeto(writeName,data,header=head)
 
 	@staticmethod
 	def roundToInt(someArray):
