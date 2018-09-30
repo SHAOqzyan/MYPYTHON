@@ -553,7 +553,7 @@ class myFITS:
 		
 		
 		
-		if not overWrite and os.path.isfile(savePath+saveName)
+		if not overWrite and os.path.isfile(savePath+saveName):
 			print "File exist, returning...."
 			return 
 		
