@@ -534,14 +534,15 @@ class myFITS:
 		if resolution is None:
 			sizePix=500
 		else:
-			sizePix=
-		
-		sizePix=100
+			sizePix=max(sizeLB)/resolution
+			sizePix=int(round(sizePix))
+			
+ 
 		
 		if saveName is None:
 			saveName="{}_{}_{}.fits".format(survey.replace(" ",""),centerLB[0],centerLB[1])
 			
-		print "Saving to  {}{}  ....".format(savePatsaveName)
+		print "Saving to  {}{}  ....".format(savePath,saveName)
 		
 		#command="skvbatch_wget file=./{}/{} position='{}, {}' Survey='{}'  Projection='Car' Coordinates='Galactic' Pixels={}".format(savePath,tempName,centerl,centerb,survey,sizePix)
 		command="skvbatch_wget file='{}{}' position='{}, {}' Survey='{}'  Projection='Car' Coordinates='Galactic' Pixels={}".format(savePath,saveName, centerL,centerB,survey,sizePix)
