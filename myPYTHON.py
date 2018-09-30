@@ -523,9 +523,14 @@ class myFITS:
 		all sizes are in degree
 		Download IRAS MBM,
 		
+		@resoltion of wise 22 0.00038189999999999996
+		
 		"""
 		
 		print "Download {}, at (l, b)=({}, {}) ----------  sizeL: {} deg; sizeB: {} deg".format(survey,centerLB[0],centerLB[1],sizeLB[0],sizeLB[1])
+		
+		
+		
 		
 		centerL,centerB=centerLB
 		
