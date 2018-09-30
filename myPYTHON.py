@@ -547,7 +547,15 @@ class myFITS:
 		if saveName is None:
 			saveName="{}_{}_{}.fits".format(survey.replace(" ",""),centerLB[0],centerLB[1])
 			
+			
+		
 		print "Saving to  {}{}  ....".format(savePath,saveName)
+		
+		
+		
+		if not overWrite and os.path.isfile(savePath+saveName)
+			print "File exist, returning...."
+			return 
 		
 		#command="skvbatch_wget file=./{}/{} position='{}, {}' Survey='{}'  Projection='Car' Coordinates='Galactic' Pixels={}".format(savePath,tempName,centerl,centerb,survey,sizePix)
 		command="skvbatch_wget file='{}{}' position='{}, {}' Survey='{}'  Projection='Car' Coordinates='Galactic' Pixels={}".format(savePath,saveName, centerL,centerB,survey,sizePix)
@@ -556,6 +564,9 @@ class myFITS:
 
 		os.system(command)
 		#first test a small 
+		
+		
+		
 		
 		
 		return 
