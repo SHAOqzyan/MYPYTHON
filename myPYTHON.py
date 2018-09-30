@@ -516,6 +516,89 @@ class myFITS:
 
 
 
+	
+	@staticmethod
+	def downLoadSkyview(survey,centerLB,sizeLB=[0.1,0.1],resolution=None,overWrite=True,savePath="/home/qzyan/WORK/backup/tempskyviewDownload/",saveName=None):
+		"""
+		all sizes are in degree
+		Download IRAS MBM,
+		
+		"""
+		
+		print "Download {}, at (l, b)=({}, {}) ----------  sizeL: {} deg; sizeB: {} deg".format(survey,centerLB[0],centerLB[1],sizeLB[0],sizeLB[1])
+		
+		centerL,centerB=centerLB
+		
+		sizeL,sizeB=centerLB
+		
+		if resolution is None:
+			sizePix=500
+		else:
+			sizePix=
+		
+		sizePix=100
+		
+		if saveName is None:
+			saveName="{}_{}_{}.fits".format(survey.replace(" ",""),centerLB[0],centerLB[1])
+			
+		print "Saving to  {}{}  ....".format(savePatsaveName)
+		
+		#command="skvbatch_wget file=./{}/{} position='{}, {}' Survey='{}'  Projection='Car' Coordinates='Galactic' Pixels={}".format(savePath,tempName,centerl,centerb,survey,sizePix)
+		command="skvbatch_wget file='{}{}' position='{}, {}' Survey='{}'  Projection='Car' Coordinates='Galactic' Pixels={}".format(savePath,saveName, centerL,centerB,survey,sizePix)
+
+
+
+		os.system(command)
+		#first test a small 
+		
+		
+		return 
+		
+		
+		sizePix=1500
+		
+		#survey="IRIS 100"
+		 
+		#savePath=self.IRASDownloadFolder
+		savePath="MBMFITS" #IRAS 100 umself, #self.MBMFITSPath
+
+		#saveNameRaw=MBMID+"_IRAS100.fits"
+		
+		if survey.endswith('545'):
+		
+			saveNameRaw=MBMID+"_planck545.fits"
+		if survey.endswith('857'):
+		
+			saveNameRaw=MBMID+"_planck857.fits"
+		if survey.endswith('100'):
+		
+			saveNameRaw=MBMID+"_IRAS100.fits"
+		#survey="Planck 857"
+		 
+		
+		saveName=saveNameRaw.replace(' ', '\ ')
+		if not overWrite:
+			
+			outputFile="./{}/{}".format(savePath,saveName)
+			outputFile2="./{}/{}".format(savePath,saveNameRaw)
+			
+	  
+			
+			if  os.path.isfile(outputFile2):
+				print outputFile,"exits...doing nothing..."
+				return 
+		tempName="tempIRAS.fits" #in case some filenames contains space
+		command="skvbatch_wget file=./{}/{} position='{}, {}' Survey='{}'  Projection='Car' Coordinates='Galactic' Pixels={}".format(savePath,tempName,centerl,centerb,survey,sizePix)
+		
+		os.system(command)
+		copyFile="mv ./{}/{} ./{}/{} ".format(savePath,tempName,savePath,saveName)
+		print copyFile
+		os.system(copyFile )
+
+
+
+
+
 	@staticmethod
 	def readFITS(fitsFile):
 		"""
