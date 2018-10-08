@@ -822,7 +822,20 @@ class myFITS:
 		#read FITS file
 			
 		hdu=fits.open(inFITS)[0]		
-		wmap=WCS(hdu.header)
+		
+		goodHeader=hdu.header
+		
+		del goodHeader["CTYPE4"]
+		del goodHeader["CRVAL4"]
+		del goodHeader["CDELT4"]
+		del goodHeader["CRPIX4"]
+		del goodHeader["CROTA4"]
+		
+		 
+		
+		wmap=WCS(goodHeader)
+		
+		print hdu.header
 		data=hdu.data
 		if not Vrange and not Lrange and not Brange:
 			print "No crop range is provided."
@@ -832,6 +845,7 @@ class myFITS:
 
 		zSize,ySize,xSize=data.shape
 
+		
 
 		Xrange=[0,xSize-1]  #Galactic Longitude  #
 		Yrange=[0,ySize-1]  #Galactic Longitude  #
