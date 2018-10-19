@@ -88,6 +88,10 @@ class myFITS:
 		#and some paramters will be automatically figured out
 
 
+
+
+
+
 	@staticmethod
 	def lineFit(X1, Y1, errorX, errorY):
 		"""
@@ -394,12 +398,18 @@ class myFITS:
 
 		
 		processPath,FITSname=os.path.split(FITSFile);
+
  
 		if processPath=="":
 			processPath="./"
 
 		else:
 			processPath=processPath+"/"
+
+ 
+ 		print "================"
+		print processPath,FITSname
+
 
 		print "Doing moment {} in the velocity range of {} kms".format(mom,Vrange)
 
@@ -411,11 +421,12 @@ class myFITS:
 		
 
 		if not outFITS:
+			outPath=processPath
 			outPutName=FITSname[0:-5]+"_M{}.fits".format(mom)
 		else:
 
-			aa,outPutName=os.path.split(outFITS);
-
+			outPath,outPutName=os.path.split(outFITS);
+			outPath=outPath+"/"
 
 		#delete this frisrt
 		deleteFITS1="rm -rf %s"%ReadOutName
@@ -444,15 +455,15 @@ class myFITS:
 
 		saveScriptPath="scriptPath=$PWD"
 		backToScriptPath="cd $scriptPath"
-		copyFITS="mv {}{}  {}".format(processPath,outPutName,outPutName)
+		copyFITS="mv {}{}  {}{}".format(processPath,outPutName,outPath,outPutName)
 		if outFITS:
 			pass
-		
+
  
-	
+
 		self.runShellCommonds([saveScriptPath,goToPath,ReadFITS,momentString,deleteFITS3,outPUTFITS,deleteFITS1,deleteFITS2,backToScriptPath,copyFITS],"./")
  
-		return self.readFITS(outPutName)
+		return self.readFITS(outPath+outPutName)
 
 
 
@@ -835,7 +846,7 @@ class myFITS:
 		
 		wmap=WCS(goodHeader)
 		
-		print hdu.header
+ 
 		data=hdu.data
 		if not Vrange and not Lrange and not Brange:
 			print "No crop range is provided."
@@ -923,7 +934,19 @@ class myFITS:
 
 
 	@staticmethod
-	def cropFITS2D(inFITS,outFITS=None,Vrange=None,Lrange=None,Brange=None,overWrite=False):
+	def getRMS(Array):
+		
+		"""
+		Return the RMS of Array		
+		"""
+		Array=np.array(Array)
+		
+		return np.sqrt(np.mean(np.square(Array)))
+
+
+
+	@staticmethod
+	def cropFITS2D(inFITS,outFITS=None, Lrange=None,Brange=None,overWrite=False):
 		"""
 		parameters: inFITS,outFITS=None,Vrange=None,Lrange=None,Brange=None,overWrite=False
 		Thiss function is used to create my own function of croping FITS
@@ -941,9 +964,36 @@ class myFITS:
 		#read FITS file
 			
 		hdu=fits.open(inFITS)[0]		
-		wmap=WCS(hdu.header)
-		data=hdu.data
-		if not Vrange and not Lrange and not Brange:
+		
+		header,data=hdu.header,hdu.data
+		
+		
+ 
+		
+		if len(data.shape)==3:
+			
+			z,y,x=data.shape
+			
+			if z!=1:
+				
+				return "3D fits, cannot do...."
+
+			if z==1:
+				
+				
+				print "Reducing to 2D...."
+				data=data[0]
+				header["NAXIS"]=2
+ 
+				del header["CRPIX3"]		
+				del header["CDELT3"]		
+				del header["CRVAL3"]		
+				del header["CTYPE3"]	
+ 
+				
+		wmap=WCS(header)
+ 
+		if   not Lrange and not Brange:
 			print "No crop range is provided."
 			return
 		
@@ -1040,6 +1090,8 @@ class myFITS:
 		##write each commondList into a file and run them and then delete this file
 		
 		tempSHfile=processPath+"runcommondlistTemp.sh"
+		
+ 
 		f = open(tempSHfile,'w')
 		for eachLine in commondList:
 			f.write(eachLine+"\n")
