@@ -49,7 +49,7 @@ def fitLinearODR(x,y,x_err,y_err):
  
 	# Run the regression.
 	out = odr.run()
-	#out.pprint()
+	#out.pprint() b
 	
 	return out
 
@@ -377,7 +377,7 @@ class myFITS:
 
 
 
-	def momentFITS(self,FITSFile,Vrange,mom,outFITS=None,cutEdge=False):##Vrange kms
+	def momentFITS(self,FITSFile,Vrange,mom,outFITS=None,cutEdge=False,overWrite=True):##Vrange kms
 		"""
 		Parameters: FITSFile,Vrange,mom,outPutPath=None,outPutName=None,cutEdge=False
 		
@@ -397,6 +397,9 @@ class myFITS:
 		#Split FITSFile
 
 		
+		
+		
+		
 		processPath,FITSname=os.path.split(FITSFile);
 
  
@@ -405,6 +408,7 @@ class myFITS:
 
 		else:
 			processPath=processPath+"/"
+
 
  
  		print "================"
@@ -427,6 +431,12 @@ class myFITS:
 
 			outPath,outPutName=os.path.split(outFITS);
 			outPath=outPath+"/"
+
+
+		if not overWrite:
+			if os.path.isfile(outPath+outPutName):
+				print "No overwriting, skipping......."
+				return self.readFITS(outPath+outPutName)
 
 		#delete this frisrt
 		deleteFITS1="rm -rf %s"%ReadOutName
@@ -455,7 +465,9 @@ class myFITS:
 
 		saveScriptPath="scriptPath=$PWD"
 		backToScriptPath="cd $scriptPath"
+
 		copyFITS="mv {}{}  {}{}".format(processPath,outPutName,outPath,outPutName)
+ 
 		if outFITS:
 			pass
 
