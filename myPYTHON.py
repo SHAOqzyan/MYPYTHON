@@ -114,11 +114,17 @@ class myFITS:
 		v, km/s
 		"""
 		l,b,v=LBV
+
+
+
+		z,y,x=data.shape 
+		
+		try :
+			indexX,indexY,indexZ= dataWCS.wcs_world2pix(l,b,v*1000,0)
+		except:
+			indexX,indexY,indexZ,a= dataWCS.wcs_world2pix(l,b,v*1000,0,0)
  
-		x,y,z=data.shape 
-		
-		indexX,indexY,indexZ= dataWCS.wcs_world2pix(l,b,v*1000,0)
-		
+ 
 		indexX=int(round(indexX))
 		indexY=int(round(indexY))
 		indexZ=int(round(indexZ))
@@ -129,7 +135,7 @@ class myFITS:
 		#print indexX,indexY,indexZ
 		
 		
-		if indexX>=z or indexY>=y or indexZ>=z:
+		if indexX>=x or indexY>=y or indexZ>=z:
 			return np.NaN
 		
 		return data[indexZ,indexY,indexX]
@@ -430,6 +436,12 @@ class myFITS:
 		else:
 
 			outPath,outPutName=os.path.split(outFITS);
+			
+			
+			#print outPath,outPutName,"????????????????????????"
+			
+			if outPath=="":
+				outPath="."
 			outPath=outPath+"/"
 
 
@@ -442,14 +454,15 @@ class myFITS:
 		deleteFITS1="rm -rf %s"%ReadOutName
 		#step 1 read the file 
 		ReadFITS="fits in=%s out=%s op=xyin"%(FITSname,ReadOutName)
+
 	 
 		#step 2
 		##do moment
 		#moment in=GCcont out=GCcont.2d mom=-1 region='kms,images(-50,50)'
 		momentTempOut="momenttempout"
 		deleteFITS2="rm -rf %s"%momentTempOut
-		
-		
+
+
 		momentString="moment in=%s out=%s mom=%s region='kms,images(%s,%s)'"%(ReadOutName,momentTempOut,mom,Vrange[0],Vrange[1])
 		
 		##step 3 output the fits file
@@ -843,7 +856,9 @@ class myFITS:
 		"""
 
 		#read FITS file
-			
+		
+ 
+
 		hdu=fits.open(inFITS)[0]		
 		
 		goodHeader=hdu.header
@@ -1084,7 +1099,7 @@ class myFITS:
 				os.remove(outFITS)
 	
 				#hdu.data=datacut
-				fits.writeto(outFITS,datacut,header=wmapcut.to_header())
+				fits.writeto(outFITS,datacut,header=wmapcut.to_header()) 
 
 			else:
 				print "Warring----File ({}) exists and no overwriting!".format(outFITS)
