@@ -83,7 +83,8 @@ class myFITS:
 
 
 		else:
-			print "No input FITS is provided for myFITS"
+			pass
+			#print "No input FITS is provided for myFITS"
 		#If there is a paramters input, automatically read this FITS
 		#and some paramters will be automatically figured out
 
@@ -153,7 +154,7 @@ class myFITS:
 			return 
 
 		if outPUT is None:
-			writeName="to2D_"+fitsFile
+			writeName="temp2DFile.fits" #+fitsFile
  
 		else:
 			writeName=outPUT
@@ -186,9 +187,9 @@ class myFITS:
 		#writefits
 
 		
-		
-		
 		fits.writeto(writeName,data,header=head)
+		
+		return fits.open(writeName)[0]
 
 	@staticmethod
 	def roundToInt(someArray):
@@ -371,12 +372,75 @@ class myFITS:
 		return avgSpec,vs
 
 
+	def getAverageSpecByLBrange(self,fitsFile,lRange,bRange ):
+		
+		
+		"""
+		calculate the average fitsFITS in within the lRange and bRnage
+		"""
+		COdata,COheader=self.readFITS( fitsFile)
 
+		cropedFITS="croped.fits" #temperature 
+
+		self.cropFITS(fitsFile,outFITS=cropedFITS,Vrange=None,Lrange=lRange,Brange=bRange,overWrite=True) 
+
+		cropData,cropHeader=self.readFITS( cropedFITS)
+
+		
+		#average the spectral 
+		
+		averageSpectral=np.average(cropData,axis=(1,2) )
+ 
+		spectrum,vs =self.getSpectraByIndex( cropData,cropHeader,0,0)
+
+		return averageSpectral,vs
+		
 
 
 	def mytrim(self,d, vmin, vmax):
 		dd = (d + vmin) /(vmin + vmax)
 		return np.clip(dd, 0, 1)
+
+	@staticmethod
+	def convert4DTo3D(  header):
+
+
+		header=header.copy()
+		print "Reducing to 3D...."
+		
+		header["NAXIS"]=3
+		
+		try:
+			del header["CRPIX4"]		
+			del header["CDELT4"]		
+			del header["CRVAL4"]		
+			del header["CTYPE4"]	
+			del header["CROTA4"]	
+
+		except:
+			pass
+
+		return  header
+
+
+	def momentFITSGood(self,FITSFile,Vrange,mom=0,outFITS=None, overWrite=True,sigma=3,rms= 0.5 ):
+		"""
+		:param FITSFile: The fits used to moment, the rms of the fits is 0.5, and the sigma cut is 3, below which data would be deltedted
+		:param Vrange:
+		:param mom:
+		:param outFITS:
+		:param overWrite:
+		:return: No returen, but write the FITS file.
+		"""
+		#first do a normal moments
+
+		outMomnetTmp="outMomnetTmp.fits" #infact this is used to save the middle fits produced with momentFITS by Miriad
+
+		self.momentFITS(FITSFile,Vrange,mom,outFITS=outMomnetTmp,overWrite=True)
+
+		data2D,heade2Dr=self.downTo2D(outMomnetTmp,outPUT=outMomnetTmp,overwrite= True)
+
+		#read FITSFile, and sum the fits mannually
 
 
 
@@ -397,13 +461,38 @@ class myFITS:
 		
 		"""
 
-
 		#If no outPutName or outPUTPATH is provided then no file is going to be saved
 
 		#Split FITSFile
 
 		
+		minVInput = min(Vrange)
+		maxVInput = max(Vrange)
+
+		Vrange=[minVInput,maxVInput ]
+
+
+
+		data,head=self.readFITS(FITSFile)
+		head=self.convert4DTo3D(head)
 		
+ 
+		
+		wcs=WCS(head)
+		
+		aa,bb,vMin=wcs.wcs_pix2world(0,0,0,0)
+		aa,bb,vMax=wcs.wcs_pix2world(0,0, data.shape[0]-1,0)
+
+
+		
+
+		if vMax/1000.<maxVInput:
+			Vrange[1]= vMax/1000.
+			
+		if vMin/1000. >  minVInput:
+			Vrange[0]= vMin/1000.
+			
+
 		
 		
 		processPath,FITSname=os.path.split(FITSFile);
@@ -487,7 +576,8 @@ class myFITS:
  
 
 		self.runShellCommonds([saveScriptPath,goToPath,ReadFITS,momentString,deleteFITS3,outPUTFITS,deleteFITS1,deleteFITS2,backToScriptPath,copyFITS],"./")
- 
+		#self.runShellCommonds([saveScriptPath,goToPath,ReadFITS,momentString,deleteFITS3,outPUTFITS,deleteFITS1,deleteFITS2,backToScriptPath,copyFITS],"./")
+
 		return self.readFITS(outPath+outPutName)
 
 
@@ -526,7 +616,7 @@ class myFITS:
 		return spectral,velocities
 
  
-
+	@staticmethod
 	def getSpectraByIndex(data,dataHeader,indexX,indexY):
 		"""
 		paramters: data,dataHeader,indexX,indexY
@@ -668,23 +758,42 @@ class myFITS:
 		except:
 			pass
 
+		header=head.copy()
+		#print "Reducing to 3D....if 4D"
+ 	
+		try:
+			del header["CRPIX4"]		
+			del header["CDELT4"]		
+			del header["CRVAL4"]		
+			del header["CTYPE4"]	
+			del header["CROTA4"]	
 
-		return fitsRead[0].data,head
+		except:
+			pass
 
 
-	def downLoadSurveyByRange(self,Survey,LRange,BRange,Original=False,Pixels=None,size=None):
+
+
+		return fitsRead[0].data,header
+
+
+	def downLoadSurveyByRange(self,Survey,LRange,BRange,Original=True,Pixels=None,size=None,downLoadPath=None):
 
 		"""
 		This survey is used to download a survey with the best resolution 
-		covering the input LBRange
+		covering the input LBRange 
 
-		default size is 0.5 degree
+		default size is 0.5 degree,
+
+		modified By QingZeng 08232019
 		"""
-	
+
 
 		processFolder=Survey.replace(" ","")+"_Mosaic"
 
-		downLoadPath="./{}/".format(processFolder)
+		if downLoadPath ==None:
+
+			downLoadPath="./{}/".format(processFolder)
 		os.system("mkdir "+downLoadPath)
 
 
@@ -697,8 +806,7 @@ class myFITS:
 
 		if Original:
 			#if the largest pixel resolution is wanted
-
-		
+ 
 			resolution=self.detectSurveyResolution(Survey,[centerL,centerB])
 			if Pixels and size:
 				print "Can't assign size and pixels simultaneously in Original model, quit"
@@ -720,18 +828,15 @@ class myFITS:
 
 		#download with pixels and size assigned
 
-
-
-
-			#download with pixels size
-
-		#a bug is here
-		
+ 
 
 		extraPixels=50
 
 		downLoadSize=size/Pixels*extraPixels+size
 		downLoadPixels=Pixels+extraPixels
+
+		downLoadPixels=int(downLoadPixels) # needs to be integar?
+
 		#estimate pixels
 			
 		tilesL=abs(LRange[1]-LRange[0])/size
@@ -759,8 +864,10 @@ class myFITS:
 				if os.path.isfile(outputName):
 					continue
 
+				#self.getSurvey(Survey,[centerTileL,centerTileB],Pixels=downLoadPixels,size=downLoadSize,outputFITS=outputName)
+				self.getSurvey(Survey,[centerTileL,centerTileB],Pixels=downLoadPixels , outputFITS=outputName)
 
-				self.getSurvey(Survey,[centerTileL,centerTileB],Pixels=downLoadPixels,size=downLoadSize,outputFITS=outputName)
+
 				#print centerTileL,centerTileB
 				#if Original:
 					#self.getSurvey(Survey,[centerTileL,centerTileB],Pixels=int(sizePixels+50),outputFITS=outputName)
@@ -779,9 +886,17 @@ class myFITS:
 		to know the resolution of the survey
 		"""
 		#print Survey,LB
+		tempPath="/home/qzyan/astrosoft/ref_qzyan/tempSkyview/" #a fold to save the resolution of surveys
 
-		outputFITS="checkRes.fits"
-		self.getSurvey(Survey,LB,outputFITS=outputFITS,Pixels=100)
+		saveSurvey=Survey.replace(" ","")
+
+		outputFITS=tempPath+saveSurvey+"checkRes.fits"
+
+
+		#print outputFITS, ">>>>>>>>>>>>>>>>"
+		if not os.path.isfile( outputFITS):
+
+			self.getSurvey(Survey,LB,outputFITS=outputFITS,Pixels=100)
 
 		data,header=self.readFITS(outputFITS)
 
@@ -808,28 +923,30 @@ class myFITS:
 		if not outputFITS:
 			outputFITS=Survey.replace(" ","")+"_"+str(centerL)+"_"+str(centerB)+".fits"
 
+
+
 		if not Pixels and not size:
 
 			#no download paratmers are providided, download with  pixels=500
 			
-			command="/usr/lib/python2.7/skvbatch_wget file={} position='{},{}' Survey='{}'  Coordinates=Galactic  Projection=Car  Pixels={}".format(outputFITS,centerL,centerB,Survey,500)
-
+			command="skvbatch_wget file={} position='{},{}' Survey='{}'  Coordinates=Galactic  Projection=Car  Pixels={}".format(outputFITS,centerL,centerB,Survey,500)
+			print command
 			os.system(command)
 			return
 
 		if Pixels and size:
 
-			command="/usr/lib/python2.7/skvbatch_wget file={} position='{},{}' Survey='{}'  Coordinates=Galactic  Projection=Car size={} Pixels={}".format(outputFITS,centerL,centerB,Survey,size,Pixels)
+			command="skvbatch_wget file={} position='{},{}' Survey='{}'  Coordinates=Galactic  Projection=Car size={} Pixels={}".format(outputFITS,centerL,centerB,Survey,size,Pixels)
 
-			os.system(command)
+			#os.system(command)
 			return
 		if not size:
 
-			command="/usr/lib/python2.7/skvbatch_wget file={} position='{},{}' Survey='{}'  Coordinates=Galactic  Projection=Car  Pixels={}".format(outputFITS,centerL,centerB,Survey,Pixels)
+			command="skvbatch_wget file={} position='{},{}' Survey='{}'  Coordinates=Galactic  Projection=Car  Pixels={}".format(outputFITS,centerL,centerB,Survey,Pixels)
 			#print command
 		else:
-			command="/usr/lib/python2.7/skvbatch_wget file={} position='{},{}' Survey='{}'  Coordinates=Galactic  Projection=Car size={} ".format(outputFITS,centerL,centerB,Survey,size)
-
+			command="skvbatch_wget file={} position='{},{}' Survey='{}'  Coordinates=Galactic  Projection=Car size={} ".format(outputFITS,centerL,centerB,Survey,size)
+			#print command
 		#print command
 		os.system(command)
 
@@ -862,13 +979,17 @@ class myFITS:
 		hdu=fits.open(inFITS)[0]		
 		
 		goodHeader=hdu.header
-		
-		del goodHeader["CTYPE4"]
-		del goodHeader["CRVAL4"]
-		del goodHeader["CDELT4"]
-		del goodHeader["CRPIX4"]
-		del goodHeader["CROTA4"]
-		
+		#goodHeader["BITPIX"]=
+		#datacut=np.float32(datacut) #use 32bit
+
+		try :
+			del goodHeader["CTYPE4"]
+			del goodHeader["CRVAL4"]
+			del goodHeader["CDELT4"]
+			del goodHeader["CRPIX4"]
+			del goodHeader["CROTA4"]
+		except:
+			pass
 		 
 		
 		wmap=WCS(goodHeader)
@@ -902,6 +1023,7 @@ class myFITS:
 			Xrange=[firstPoint[0],lastPoint[0]]
 		else:
 			Xrange=Lrange
+			
 		if not Brange:
 			Yrange=[firstPoint[1],lastPoint[1]]
 		else:
@@ -916,6 +1038,9 @@ class myFITS:
 		cutFIRST=wmap.wcs_world2pix(Xrange[0],Yrange[0],Zrange[0],0)
 		cutLAST =wmap.wcs_world2pix(Xrange[1],Yrange[1],Zrange[1],0)
 
+
+
+
 		cutFIRST=map(round,cutFIRST)
 		cutLAST=map(round,cutLAST)
 
@@ -926,17 +1051,17 @@ class myFITS:
 		cutFIRST[1]=max(0,cutFIRST[1])
 		cutFIRST[2]=max(0,cutFIRST[2])
 
-		cutLAST[0]=min(xSize-1,cutLAST[0])
-		cutLAST[1]=min(ySize-1,cutLAST[1])
-		cutLAST[2]=min(zSize-1,cutLAST[2])
+		cutLAST[0]=min(xSize-1,cutLAST[0])+1
+		cutLAST[1]=min(ySize-1,cutLAST[1])+1
+		cutLAST[2]=min(zSize-1,cutLAST[2])+1
 		#calculate the true pixels according to the input range
 		wmapcut=wmap[cutFIRST[2]:cutLAST[2],cutFIRST[1]:cutLAST[1],cutFIRST[0]:cutLAST[0]]
 		datacut=data[cutFIRST[2]:cutLAST[2],cutFIRST[1]:cutLAST[1],cutFIRST[0]:cutLAST[0]]
 		#datacut=data[1:3,1:5,1:9]
 
 		#hdu = fits.PrimaryHDU(datacut,header=wmapcut)
-
-
+		datacut=np.float32(datacut)
+		
 		if not outFITS:
 			"""
 			If no output file Name is provide
@@ -995,30 +1120,14 @@ class myFITS:
 		header,data=hdu.header,hdu.data
 		
 		
+		wmap=WCS(header,naxis=2)
+		sizeData=data.shape
+		if len(sizeData)==3:
+			data=data[0]
+		if len(sizeData)==4:
+			data=data[0]
+			data=data[0]
  
-		
-		if len(data.shape)==3:
-			
-			z,y,x=data.shape
-			
-			if z!=1:
-				
-				return "3D fits, cannot do...."
-
-			if z==1:
-				
-				
-				print "Reducing to 2D...."
-				data=data[0]
-				header["NAXIS"]=2
- 
-				del header["CRPIX3"]		
-				del header["CDELT3"]		
-				del header["CRVAL3"]		
-				del header["CTYPE3"]	
- 
-				
-		wmap=WCS(header)
  
 		if   not Lrange and not Brange:
 			print "No crop range is provided."
@@ -1037,9 +1146,13 @@ class myFITS:
 		lastPoint=wmap.wcs_pix2world(xSize-1,ySize-1 ,0)
 
  
+ 
 
 		if not Lrange:
 			Xrange=[firstPoint[0],lastPoint[0]]
+			
+			
+			
 		else:
 			Xrange=Lrange
 		if not Brange:
@@ -1062,17 +1175,20 @@ class myFITS:
 		cutFIRST=map(round,cutFIRST)
 		cutLAST=map(round,cutLAST)
 
-		cutFIRST=map(int,cutFIRST)
-		cutLAST=map(int,cutLAST)
+		cutFIRST=map(int,cutFIRST) 
+		cutLAST=map(int,cutLAST) 
+
+
 
 		cutFIRST[0]=max(0,cutFIRST[0])
 		cutFIRST[1]=max(0,cutFIRST[1])
 
-		cutLAST[0]=min(xSize-1,cutLAST[0])
-		cutLAST[1]=min(ySize-1,cutLAST[1])
+		cutLAST[0]=min(xSize-1,cutLAST[0])+1
+		cutLAST[1]=min(ySize-1,cutLAST[1])+1
 		
 		
- 
+		#print cutFIRST,"first"
+		#print cutLAST,"last"
 
 		#calculate the true pixels according to the input range
 		wmapcut=wmap[ cutFIRST[1]:cutLAST[1],cutFIRST[0]:cutLAST[0]]
@@ -1130,3 +1246,76 @@ class myFITS:
 		os.system("rm -rf "+tempSHfile)
 		#self.l=l_input
 		#self.b=b_input
+
+	
+
+	@staticmethod
+	def drawLV(fitsName,saveFITS=None, RMS=0.5, cutLevel=3.):
+ 
+		if saveFITS==None:
+			saveFITS=fitsName[:-5] + "_LV.fits"
+ 
+		CO12HDU= fits.open(fitsName)[0]
+		data,head= CO12HDU.data,CO12HDU.header
+ 
+		wcs=WCS(head)
+		
+		Nz,Ny,Nx=data.shape
+		beginP=[0, (Ny-1.)/2.]
+		
+		endP= [(Nx) , (Ny-1.)/2.]
+
+		widthPix=2 
+		from pvextractor import extract_pv_slice,Path
+		
+		endpoints = [beginP,endP]
+		xy = Path(endpoints,width= widthPix )
+		
+		pv = extract_pv_slice(  CO12HDU, xy)
+		
+		
+		os.system("rm " +saveFITS )
+		
+		
+		pv.writeto(saveFITS)
+		
+		if 1: #modify the first 
+	
+			pvData,pvHead=myFITS.readFITS( saveFITS )
+			
+			
+			pvHead["CDELT1"]=head["CDELT1"]
+			pvHead["CRPIX1"]=head["CRPIX1"]
+			pvHead["NAXIS1"]=head["NAXIS1"]
+			pvHead["CRVAL1"]=head["CRVAL1"]
+			
+ 
+		data[data<cutLevel*RMS ]=0 #by default, we remove those emissions less than 3 sgima
+
+
+		# resolution
+		res=30./3600. 
+
+		PVData2D=np.sum(data,axis=1)*res
+
+		
+		
+		if PVData2D.shape==pvData.shape:
+			#.....
+			os.system("rm " +saveFITS )
+		
+				
+			fits.writeto(saveFITS,PVData2D,header=pvHead)
+		else:
+ 
+			print "The shape of pvdata with manual integration is unequal!"
+			
+			
+		
+		
+		
+		
+		
+	def ZZZ(self):
+		#mark the end of the file
+		p

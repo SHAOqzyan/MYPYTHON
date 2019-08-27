@@ -5,6 +5,7 @@ import MySQLdb
 from astropy.table import   Table
 import numpy as np
 
+
 class GAIATB:
 	name="GSF_Gaia2_all" #table name
 	
@@ -31,6 +32,7 @@ class GAIATB:
 
 	agError ="agError" # relative ag error
 
+
 	relative_error ="relative_error" ##relative parallax error
 
  
@@ -39,8 +41,9 @@ class GAIATB:
 
 	dataTypes=[ float,float,float,float, float, float,float,float,float,float ] #all float
 	
+	GAIA_distance ="distance"
+	GAIA_distanceError ="distance_err"
 	
-
 
 	def getDB(self):
 		#read dbInfo.txt
@@ -55,7 +58,7 @@ class GAIATB:
 
 
 
-	def getByLBRange(self,Lrange,Brange,lowerPara=0.2,paraError=0.2,upperPara=None):
+	def getByLBRange(self,Lrange,Brange,lowerPara=0.2,paraError=0.2,upperPara=None,calDis=False):
 		
 		"""
 		dedicated to find other regions that are overlaping with the current source
@@ -95,7 +98,7 @@ class GAIATB:
 			sqlCommand="select * from {} where  l > {} and l < {} and b > {} and b < {} and parallax>{} and parallax<{}  and parallax_err<parallax*{};".format(self.name,sL,eL,sB,eB,lowerPara,upperPara,paraError)
 
  
-
+ 
 		# execute SQL query using execute() method.
 		cursor.execute(sqlCommand)
 		# Fetch a single row using fetchone() method.
@@ -114,11 +117,60 @@ class GAIATB:
 		#construct a TB with data
 		#db.commit()
 		
+		queryTB=Table(rows= data , names=self.colnames,dtype=('f8','f8','f8','f8','f8','f8','f8','f8','f8','f8'))
+
+		if calDis:
+			return self.addDisToTB(queryTB )
 		
-		return Table(rows= data , names=self.colnames,dtype=('f8','f8','f8','f8','f8','f8','f8','f8','f8','f8'))
+		return queryTB
+		
+		
+
+	def addDisToTB(self,gaiaTB ):
+		
+		"""
+		
+		calculate distance, and add them to gaiaTB,
+		
+		usually only do once
+		"""
+		#copy file
+		
+		newTB=gaiaTB.copy()
+ 
+		disCol= gaiaTB["parallax"]*0
+		disCol.name= self.GAIA_distance
 		
  
-  
+		disErrCol= gaiaTB["parallax"]*0
+		disErrCol.name= self.GAIA_distanceError
+
+
+		parallaxErrCol="parallax_err"
+
+		if "parallax_error" in newTB.colnames: # for new gaia TB
+			parallaxErrCol="parallax_error"
+
+
+		
+		newTB.add_columns( [disCol,  disErrCol  ])
+		
+		
+		for eachRow in newTB: 
+			para=eachRow["parallax"]
+			paraError= eachRow[parallaxErrCol] #+0.1 #   #
+			
+			dA=1./np.random.normal(para,paraError,20000)*1000
+			
+			eachRow[self.GAIA_distance]=  round(np.mean(dA), 2) 
+			
+			eachRow[self.GAIA_distanceError]=   round(np.std(dA,ddof=1), 2) 
+		
+
+ 		return newTB
+
+
+
 
 	def converSqlToTB(self,sqlTB):
 		
@@ -127,3 +179,9 @@ class GAIATB:
 		
 		pass
 		
+	def filterByLB(self,TB):
+		
+		"""
+		"""
+		
+		pass
