@@ -17,6 +17,7 @@ from matplotlib.offsetbox import AnchoredText
 import os
 
 
+
 from astropy.table import   Table
 import numpy as np
 
@@ -178,6 +179,10 @@ class disTB: #do not use mysql
 		
 		distance=dataRow[self.distance]
 		coInt=dataRow[self.COsum]
+
+
+		#print "coInt",coInt,"???????????????"
+
 
 		NH2= coInt *xFactor # cm-2 #
 		

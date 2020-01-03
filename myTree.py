@@ -2,6 +2,19 @@
 #deal with  dendrotree
 
 from astropy.table import Table,vstack
+import numpy as np
+import math
+def weighted_avg_and_std(values, weights=None):
+    """
+    Return the weighted average and standard deviation.
+
+    values, weights -- Numpy ndarrays with the same shape.
+    """
+    average = np.average(values, weights=weights)
+    # Fast and numerically precise:
+    variance = np.average((values-average)**2, weights=weights)
+    return (average, math.sqrt(variance))
+
 
 class dendroTree:
 	
@@ -14,6 +27,9 @@ class dendroTree:
 	#usually star from turunk, usually, we only care about trunk
 	
 	dendroTB=True
+
+	childDict=None
+
 	def __init__(self,treeFile,dendroCat=None):
 		"""
 		pass
@@ -39,7 +55,8 @@ class dendroTree:
 
 	def getTreeDict(self):
 		treeDict={}
-		
+
+		childDict={}
 		
 		with open(self.treeFile) as f:
 		    lines = f.readlines()
@@ -48,9 +65,17 @@ class dendroTree:
 			indexC,indexP =map(int,eachLine.split())			
 			
 			treeDict[indexC]=indexP #search Parent
+
+			if indexP in childDict.keys():
+				childDict[indexP ] .append(  indexC )
+			else:
+				childDict[indexP ]=[indexC]
+
+
 			#a node may have many two children, but only one parent
 		self.treeDict=treeDict
-		
+		self.childDict=childDict
+
 	def isTrunk(self,ID):
 		
 		return self.treeDict[ID]==-1
@@ -60,12 +85,8 @@ class dendroTree:
 
 	def isLeaf(self,ID):
 		
- 
-		for k, v in self.treeDict.items():
-			if v==ID:
-				return False
-				
-		return True
+		return  ID not in self.childDict.keys()
+
  				
 	def getAllTrunk(self):
 		"""
@@ -82,20 +103,97 @@ class dendroTree:
 
 
 	def getChildren(self,ID):
-		
- 
-		
-		children=[]
-		
-		if self.isLeaf(ID):
-			return []
-		
-		for k, v in self.treeDict.items():
-			if v==ID:
-				children.append(k)
+
+		if ID not in self.childDict.keys():
+			return None
+
 				
-		return children
- 				
+		return self.childDict[ID]
+
+
+	def getAllLeaves(self,ID):
+
+
+		if ID not in self.childDict.keys():
+			return [ID]
+
+		returnList=[]
+
+		self.getAllLeavesRecurse(ID,returnList)
+
+
+		return returnList
+
+
+
+
+
+
+	def getAllLeavesRecurse(self,ID,collectList):
+		"""
+		Return all leave IDs
+		:param ID:
+		:return:
+		"""
+
+		allChindren=self.getChildren(ID)
+
+		if allChindren!=None:
+
+			#print (self.dendroTB[allChindren[0]]['v_cen']-self.dendroTB[allChindren[1]]['v_cen'])/1000.
+
+			self.getAllLeavesRecurse( allChindren[0] ,collectList )
+			self.getAllLeavesRecurse(  allChindren[1] ,collectList )
+
+		else:
+
+			collectList.append(ID)
+
+	def getMaxDV(self,ID):
+		"""
+
+		:param ID:
+		:return:
+		"""
+		# get the maximum velocity range for branches
+
+		allLeaf=self.getAllLeaves(ID)
+
+
+
+		subTB=self.dendroTB[allLeaf]
+		vrms=subTB[0]['v_rms']
+		if len(subTB)==1:
+			return vrms
+
+		dv= max(subTB['v_cen'].data) -  min(subTB['v_cen'].data)
+		#return max(dv/1000.,vrms)
+
+		return  dv/1000.
+	def getMaxDVAnLostFlux(self,ID):
+		"""
+
+		:param ID:
+		:return:
+		"""
+		# get the maximum velocity range for branches
+
+		allLeaf=self.getAllLeaves(ID)
+
+
+		subTB=self.dendroTB[allLeaf]
+		vrms=subTB[0]['v_rms']
+		if len(subTB)==1:
+			return vrms
+
+		dv= max(subTB['v_cen'].data) -  min(subTB['v_cen'].data)
+		#return max(dv/1000.,vrms)
+
+		#mean,std=weighted_avg_and_std( subTB['v_cen'].data, weights= subTB['flux'].data )
+		mean,std=weighted_avg_and_std( subTB['v_cen'].data  )
+
+		#return   6*std/1000.,  np.sum( subTB["flux"]  ),len(subTB)
+		return  dv/1000.,  np.sum( subTB["flux"]  ),len(subTB)
 
  				
 	def getTrunkID(self,ID):

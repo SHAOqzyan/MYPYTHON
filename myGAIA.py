@@ -48,8 +48,11 @@ from gaiaAVFlagTB import GAIAAVFlag
 
 
 from gaiaTB import GAIATB
-doAV= GAIAAVFlag()  #avTB
+#from gaiaTBCor import GAIATB
+
 doAG= GAIATB()
+
+doAV= GAIAAVFlag()  #avTB
 
 class GAIADIS:
 	#name="GSF_Gaia2_all"
@@ -103,15 +106,17 @@ class GAIADIS:
 	
 	
 	
-	foregroundCOCut=2.  #K km/s
-	
+	foregroundCOCut=3.  #K km/s
+
+	#foregroundCOCut=10.  #K km/s
+
 	#the lRang of G210 is 209.75-219.75
 	
 	extraDis=300. # select extra 300 pc stars to make the tail of off cloud star normal
 	agThresh=0.05 #mag, lower
  
 
- 
+	tmpPath="/home/qzyan/WORK/myDownloads/GaiaTmpFiles/"
 	
 	def __init__(self,sourceName="test",useAV=False, maskFITS=None,useBaseLine=False,disTBPath=None,redoPara=False,foregroundFITS=None): 
 
@@ -186,7 +191,7 @@ class GAIADIS:
 
  
 
-	def calDisWithG2(self,oncloudStars,offcloudStars,baseLine,smScale=50  ):
+	def calDisWithG2(self,oncloudStars,offcloudStars,baseLine,smScale=50,correctBaseline=True  ):
 		"""
 		calculate the distance with oncloud stars, no figure will be provided, and only sample will be returned
 		
@@ -237,7 +242,7 @@ class GAIADIS:
 		#rawDataOff=[smDisOff,smAGOff,aa,aa]
 		
 
-		if 1: #subtract base line
+		if correctBaseline: #subtract base line
 			#axRaw.plot(drawNOCODis,y_ ,color='red',label=r"A$_{\rm G}$ baseline")	
  
  
@@ -279,15 +284,15 @@ class GAIADIS:
  
 		sampleArray=[]
 		
-	 	
-	 	for j in range(len(returnSampleDic[0])):
+
+		for j in range(len(returnSampleDic[0])):
 			
-	 		sampleArrayj=[]
+			sampleArrayj=[]
 			for i in  range(len( returnSampleDic) ):
 				
 				sampleArrayj.append(returnSampleDic[i][j])
 			
-	 		sampleArray.append( np.concatenate(sampleArrayj) )
+			sampleArray.append( np.concatenate(sampleArrayj) )
 
 		return sampleArray,rawDataOn,rawDataOff,rawDataBase,baseLine 
 		
@@ -332,15 +337,15 @@ class GAIADIS:
  
 		sampleArray=[]
 		
-	 	
-	 	for j in range(len(returnSampleDic[0])):
+
+		for j in range(len(returnSampleDic[0])):
 			
-	 		sampleArrayj=[]
+			sampleArrayj=[]
 			for i in  range(len( returnSampleDic) ):
 				
 				sampleArrayj.append(returnSampleDic[i][j])
 			
-	 		sampleArray.append( np.concatenate(sampleArrayj) )
+			sampleArray.append( np.concatenate(sampleArrayj) )
 
 		return sampleArray,rawData
  
@@ -389,15 +394,15 @@ class GAIADIS:
  
 		sampleArray=[]
 		
-	 	
-	 	for j in range(len(returnSampleDic[0])):
+
+		for j in range(len(returnSampleDic[0])):
 			
-	 		sampleArrayj=[]
+			sampleArrayj=[]
 			for i in  range(len( returnSampleDic) ):
 				
 				sampleArrayj.append(returnSampleDic[i][j])
 			
-	 		sampleArray.append( np.concatenate(sampleArrayj) )
+			sampleArray.append( np.concatenate(sampleArrayj) )
 
 
 		print len(sampleArray[0]),"total samples????"
@@ -437,11 +442,8 @@ class GAIADIS:
 
 		distances, av,  disError,avError =self. getDisAndAGFromTB( TB)
 
-
- 
- 		
 		minDis=int( min( distances) )
-		maxDis=int( max(distances) ) +1
+		maxDis=int( max(distances) ) + 1
 		
 		newDisRange=np.arange(minDis,maxDis+smScale,smScale)
 
@@ -457,7 +459,7 @@ class GAIADIS:
 			selectCriteria=   (distances>=beginD) &  (distances<=endD)
 
 
-			cut1=distances[  selectCriteria]
+			cut1=distances[ selectCriteria ]
  
 			cut2=av[  selectCriteria ]
 
@@ -472,9 +474,8 @@ class GAIADIS:
 
 			weight1=1./cut1Err**2/(np.sum(1./cut1Err**2))
 			weight2=1./cut2Err**2/(np.sum(1./cut2Err**2))
-			
- 
-			
+
+
 			#print np.average(cut1,weights=weight1)
 			
 			
@@ -498,7 +499,7 @@ class GAIADIS:
 		
  
  
- 		
+
 		#better do this with distance directely
 		
 		if self.GAIA_distance in gaiaTB.colnames   :
@@ -577,7 +578,11 @@ class GAIADIS:
 			weight1=1./cut1Err**2/(np.sum(1./cut1Err**2))
 			weight2=1./cut2Err**2/(np.sum(1./cut2Err**2))
 
-	
+
+			if np.nan in weight1:
+				print "?????????????????????????????????"
+
+
 			newDisList.append(1./np.average(cut1,weights=weight1)*1000 ) #distance in pc
 			
 			newExtictionList.append( np.average(cut2,weights=weight2) ) # ag average
@@ -666,7 +671,7 @@ class GAIADIS:
 		selectRows=selectRows==1
 		
 		gaiaOnCloudStars=gaiaOnCloudStars[selectRows]
- 		
+
 		gaiaOnsource=gaiaOnCloudStars
  
 		selectRows= 1- np.isnan(gaiaOffCloudStars[self.coint] )
@@ -765,15 +770,15 @@ class GAIADIS:
 		
 		truegaiaOnCloudStars_1=truegaiaOOnCloudStars.loc[self.GAIA_parallax,  :upperPara]
 
- 		foreGroundStars=None
- 		
- 		if lowerDisCut>1:
- 			foreGroundStars=truegaiaOOnCloudStars.loc[self.GAIA_parallax,  upperPara:]
- 		
- 		
+		foreGroundStars=None
+
+		if lowerDisCut>1:
+			foreGroundStars=truegaiaOOnCloudStars.loc[self.GAIA_parallax,  upperPara:]
+
+
 			dataDisFore, dataAGFore,disErrorFore, AGErrorFore=self.getDisAndAGFromTB(foreGroundStars)
 
- 		
+
 		
 		
 		sampleArray,rawData=self.calDisWith5Ps(truegaiaOnCloudStars_1 )
@@ -791,7 +796,7 @@ class GAIADIS:
 		disStd=newDisRow[ disTB.disStd ]  
 		lowerDis=newDisRow[ disTB.disHPDLow ] 
 		upperDis= newDisRow[ disTB.disHPDUp ] 
- 		
+
 
 		
 		disStd= np.std(sampleArray[0],ddof=1) 
@@ -955,7 +960,7 @@ class GAIADIS:
 		
 		
 		
- 		if "distance"  in oncloudStars.colnames and doAV.dist50 in oncloudStars.colnames:
+		if "distance"  in oncloudStars.colnames and doAV.dist50 in oncloudStars.colnames:
 			# has  
 			#print "distance column found!!!!!!!!!!!!"
 			
@@ -969,7 +974,7 @@ class GAIADIS:
 
 			return np.array(dataDis),np.array( dataAG),np.array(disError), np.array(AGError)
  
- 		if "distance"  in oncloudStars.colnames  :
+		if "distance"  in oncloudStars.colnames  :
 			# has  
 			#print "distance column found!!!!!!!!!!!!"
 			
@@ -986,7 +991,7 @@ class GAIADIS:
 
 
 
- 		if doAV.dist50 in oncloudStars.colnames:
+		if doAV.dist50 in oncloudStars.colnames:
 			# has  
 			#print "distance column found!!!!!!!!!!!!"
 			
@@ -1014,7 +1019,7 @@ class GAIADIS:
 		#if 1 :#:#calculate parallax with mcmc
 		for i in range(len(dataDis)):
 			para=oncloudStars[i]["parallax"]
-			paraError=oncloudStars[i]["parallax_err"] #+0.1 #   #
+			paraError=oncloudStars[i][doAG.GAIA_parallax_err] #+0.1 #   #
 			
 			dA=1./np.random.normal(para,paraError,20000)*1000
 			
@@ -1063,44 +1068,47 @@ class GAIADIS:
 
 
 	def assignOnsourceGaia(self,GaiaTB,bgFITS,colName=None):
- 
+
+
 		GaiaTB= GaiaTB.copy()
 
-		
+
 		bgData,bgHead= fits.open(bgFITS)[0].data,fits.open(bgFITS)[0].header    #myFITS.readFITS(bgFITS)
-		
-
- 
-
 
 		if colName ==None:
 			colName=self.coint
 			#addCol=Column(name=self.coint,data=np.zeros(len(GaiaTB)))
- 
-			
+
+
 		addCol=Column(name=colName,data=np.zeros(len(GaiaTB)))
-			
+
 		GaiaTB.add_column(addCol)
- 
+
 		bgWCS=WCS(bgHead,naxis=2)
-		
-		
-		
-		
+
+
+
+
 		Ls=GaiaTB["l"]
 		Bs=GaiaTB["b"]
- 
+
 		Xs,Ys=bgWCS.all_world2pix(Ls,Bs,0)
 
- 		Xs=map(round,Xs)
- 		Ys=map(round,Ys)
- 		Xs=map(int,Xs)
- 		Ys=map(int,Ys)
- 
+		if Xs[0]<0:
+			Xs,Ys=bgWCS.all_world2pix(Ls-360,Bs,0)
+
+
+		Xs=map(round,Xs)
+		Ys=map(round,Ys)
+		Xs=map(int,Xs)
+		Ys=map(int,Ys)
+
 		#[y,x]
 
+
+
 		sizeData=bgData.shape
-		
+
 		if len(sizeData)==3:
 			bgData=bgData[0]
 		if len(sizeData)==4:
@@ -1111,17 +1119,17 @@ class GAIADIS:
 
 
 		for i in range(len(Xs)):
-			
+
 			if Ys[i] >maxY-1 or  Xs[i]>maxX-1:
 				GaiaTB[i][colName]= -1000 #self.getCointByLB(bgData, WCS(bgHead), eachStar["l"],eachStar["b"])
 
 			else:
-			
+
 				GaiaTB[i][colName]= bgData[Ys[i]][Xs[i]]  #self.getCointByLB(bgData, WCS(bgHead), eachStar["l"],eachStar["b"])
 
-				 
 
-		return  GaiaTB 
+
+		return  GaiaTB
 
 
 	def calWithFITS(self,fitsName,Lrange,Brange,noise,signalLevel,noiseLevel):
@@ -1134,7 +1142,7 @@ class GAIADIS:
 		#first select Gaia by  LB range
 		
 		gaiaAllSourceStars=self.gaiaDo.getByLBRange(Lrange,Brange,upperPara= 1/2.2,paraError=0.2) # error<20%
- 		gaiaAllSourceStars=self.assignOnsourceGaia(gaiaAllSourceStars,fitsName)
+		gaiaAllSourceStars=self.assignOnsourceGaia(gaiaAllSourceStars,fitsName)
 
 		print len(gaiaAllSourceStars)
 		gaiaAllSourceStars.add_index(self.coint)
@@ -1271,7 +1279,7 @@ class GAIADIS:
 			self.sourceRow[disTB.sourceName]=sName
 		
 		
- 		
+
 		#print self.sourceRow
 				
 		#self.disRecord.addRowToTB( self.sourceRow )
@@ -1427,7 +1435,7 @@ class GAIADIS:
  
 			d.set('regions',regionStr)
 			
-		#open the mas
+			#open the maskfits
 		
 		
 		newfitFileMask= str.strip( raw_input("FITS MASK ({}): ".format("") ) )
@@ -1494,7 +1502,7 @@ class GAIADIS:
 			newNameForEachRegion=newRow[disTB.sourceName] 
 			
 			
- 			
+
 			if i>0:
 				newRow[ disTB.sourceName ]=newNameForEachRegion+ "_" +str(i)
 			
@@ -1502,7 +1510,7 @@ class GAIADIS:
 			boxPosition=eachRegion.coord_list
 				
 			
-			lRange,bRange= self.box(boxPosition )
+			lRange,bRange= self.boxRegion(boxPosition )
 			
  
 			newRow[ disTB.boxCenterL  ]= boxPosition[0]
@@ -1589,7 +1597,7 @@ class GAIADIS:
 	 
 		initialValues=initialValues.copy()
 
- 		for eachV in testValues:
+		for eachV in testValues:
 
 			initialValues[paraName]=eachV
 			print "Tesing ..",paraName,"---: ",eachV
@@ -1624,7 +1632,7 @@ class GAIADIS:
 		
 		self.calDisByRowBase(self.sourceRow,maskFITS=maskFITS ,foregroundCOFITS=foregroundCOFITS,legendLoc=legendLoc)
 
-	def getOnAndOffStars(self,TB,NL=1,SL=5,maskFITS=None,intFITS=None,foregroundFITS=None):
+	def getOnAndOffStars(self,TB,NL=1,SL=5,maskFITS=None,intFITS=None,foregroundFITS=None,useMask=True):
 		
 		"""
 		"""
@@ -1648,7 +1656,7 @@ class GAIADIS:
 			TB= TB[ TB[self.foreCOCol]<self.foregroundCOCut  ]	
  
 		
-		if maskFITS!=None:
+		if maskFITS!=None and useMask:
 			#add self.maskCol and further clean the data
 			TB= self.assignOnsourceGaia(TB,maskFITS,self.maskCol )
 			
@@ -1669,7 +1677,7 @@ class GAIADIS:
 		
  
 		
-		if maskFITS!=None:
+		if maskFITS!=None and useMask:
 			
 			gaiaOffCloudStars=Table(gaiaOffCloudStars)
 			
@@ -1738,7 +1746,7 @@ class GAIADIS:
 
 
 		distance=newDisRow[ disTB.distance ]  
- 		lowerDis=newDisRow[ disTB.disHPDLow ] 
+		lowerDis=newDisRow[ disTB.disHPDLow ]
 		upperDis= newDisRow[ disTB.disHPDUp ] 
 		distance,lowerDis,upperDis=map(int, [distance,lowerDis,upperDis] )
 
@@ -1802,7 +1810,7 @@ class GAIADIS:
 
 
 		ndim=5
- 		axes = np.array(figureCorner.axes).reshape((ndim, ndim))
+		axes = np.array(figureCorner.axes).reshape((ndim, ndim))
  
 		
 
@@ -1823,10 +1831,12 @@ class GAIADIS:
 			
 			
 			
-	def drawRawGaia(self,axRaw,gaiaOnsource,gaiaOffsource,gaiaForeCut=None,row=None,figNameMark=None,markLoc=4,baseline=None):
+	def drawRawGaia(self,axRaw,gaiaOnsource,gaiaOffsource,gaiaForeCut=None,row=None,figNameMark=None,markLoc=4,baseline=None,drawOff=True ):
 		#draw smooth reulst of on and off ccloud stars,
 		
 		#if distance results are provided, draw them
+
+
 
 		dataDisOff,dataAGOff,aa,aa=self.getSmoothArrayWithTB(gaiaOffsource )
 		
@@ -1836,8 +1846,14 @@ class GAIADIS:
 		# smooth the data 
 		
 		dataDis, dataAG,disError, AGError=self.getDisAndAGFromTB(gaiaOnsource)
-		
+
+
+
+
 		maxY= max(smsortCOExtention)+ (np.max(dataAG)-max(smsortCOExtention))*0.8
+
+
+
 		minY= min(dataAG )-0.5
 
 
@@ -1859,12 +1875,17 @@ class GAIADIS:
 		if row!=None: #mark distances
 			sourceName=row[disTB.sourceName]
 			distance=row[ disTB.distance ]  
-	 		lowerDis=row[ disTB.disHPDLow ] 
+			lowerDis=row[ disTB.disHPDLow ]
 			upperDis= row[ disTB.disHPDUp ] 
 			
 			sourceName = row[ disTB.sourceName ] 
 			distance,lowerDis,upperDis=map(int, [distance,lowerDis,upperDis] )
-			
+
+
+			#change maxY
+			backGroundStars = dataAG[dataDis>distance]
+			maxY=np.mean(backGroundStars)+1.9*np.std( backGroundStars,ddof=1)
+
 			
 			agmu1= row[ disTB.AG1 ] 
 			agmu2= row[ disTB.AG2 ] 
@@ -1876,8 +1897,7 @@ class GAIADIS:
 				axRaw.plot([distance,max(dataDis)],[agmu2,agmu2], 'r--',lw=1.5  ,dashes=(4, 2))
 				
 			else:
-				
- 
+
 				disB=np.arange(min(dataDisOff),max(dataDisOff),1)
 				
 				extLabel=r"$A_{G}$ baseline"
@@ -1895,8 +1915,8 @@ class GAIADIS:
 		axRaw.scatter(dataDis, dataAG, edgecolors='darkgray', facecolors='darkgray',s=2,label="Raw on-cloud stars") # raw data
 
  
-
-		axRaw.scatter(dataDisOff,dataAGOff, facecolors='b',s=5, edgecolors='b',label="Binned off-cloud stars" )
+		if drawOff:
+			axRaw.scatter(dataDisOff,dataAGOff, facecolors='b',s=5, edgecolors='b',label="Binned off-cloud stars" )
 		
  
 		axRaw.scatter(smsortCODis, smsortCOExtention, edgecolors="g" ,facecolors='g',s=5,label="Binned on-cloud stars")
@@ -1948,10 +1968,10 @@ class GAIADIS:
 		else:
 			axRaw.legend(loc=4,fontsize=13)
 			#print "??????4444444???????????"
-		axRaw.set_ylim(minY-0.5, max(smsortCOExtention)+1.0)
+		axRaw.set_ylim(minY-0.5, max( max(smsortCOExtention)+1.0,minY+0.4)  )
 
 
-	def drawBaselinePanel(self,ax,dataDisOnBase,dataAGOnBase, gaiaForeCut=None,row=None, baseline=None):
+	def drawBaselinePanel(self,ax,dataDisOnBase,dataAGOnBase, gaiaForeCut=None,row=None, baseline=None ):
 		"""
 		"""
 		
@@ -1971,7 +1991,7 @@ class GAIADIS:
 		if row!=None: #mark distances
 			sourceName=row[disTB.sourceName]
 			distance=row[ disTB.distance ]  
-	 		lowerDis=row[ disTB.disHPDLow ] 
+			lowerDis=row[ disTB.disHPDLow ]
 			upperDis= row[ disTB.disHPDUp ] 
 			
 			distance,lowerDis,upperDis=map(int, [distance,lowerDis,upperDis] )
@@ -2018,7 +2038,7 @@ class GAIADIS:
 		ax.set_ylim(minY-0.5, max(dataAGOnBase)+1.0)
 
 
-	def drawCloudFITS(self,fitsName, axBack,backData, backHead,lRange,bRange,noiseLevel,signalLevel,gaiaOnsource,gaiaOffsource, maskFITS=None):
+	def drawCloudFITS(self,fitsName, axBack,backData, backHead,lRange,bRange,noiseLevel,signalLevel,gaiaOnsource,gaiaOffsource, maskFITS=None,drawOffStar=True):
 		"""
 		"""
 		if len( backData.shape)==3:
@@ -2056,15 +2076,28 @@ class GAIADIS:
 		#noiseLevel=1.
 		#signalLevel=4.
 		
+
+		np.mean(cropData )
+
+		vmin= noiseLevel/2.
+
+		aa=cropData[cropData>signalLevel]
+
+
+
+
+
+
+		vmax=   np.mean(aa )+3*np.std(aa,ddof=1)  #signalLevel*3
 		
-		vmin= noiseLevel/2. 
-		vmax= signalLevel*3
 		
-		
-		
-		
-		#axBack.imshow(backData, origin="lower",cmap="bone",norm=LogNorm(vmin=vmin, vmax=vmax),interpolation='none')
-		axBack.imshow(backData, origin="lower",cmap="bone", vmin=vmin, vmax=vmax ,interpolation='none')
+		#print vmin, vmax,"?????"
+
+		cmap = plt.cm.bone
+		cmap.set_bad('black',1.)
+
+		axBack.imshow(backData, origin="lower",cmap=cmap,norm=LogNorm(vmin=vmin, vmax=vmax),interpolation='none')
+		#axBack.imshow(backData, origin="lower",cmap="bone", vmin=vmin, vmax=vmax ,interpolation='none')
 
 		axBack.axis[:].major_ticks.set_color("w")
 			
@@ -2096,7 +2129,10 @@ class GAIADIS:
 
 
 		print "..............."
+
+
 		print np.max(  cropData)
+
 		print np.min(  cropData),signalLevel
 
 
@@ -2115,8 +2151,8 @@ class GAIADIS:
 
 		drawOff=self.getRandomRows(gaiaOffsource,N=3000)
 		
-		
-		axBack["gal"].scatter( drawOff[self.GAIA_l],drawOff[self.GAIA_b],s=0.5,color='blue',marker='o'   ,lw=0.3)
+		if drawOffStar:
+			axBack["gal"].scatter( drawOff[self.GAIA_l],drawOff[self.GAIA_b],s=0.5,color='blue',marker='o'   ,lw=0.3)
 		
 		#cmap = plt.cm.winter
 		#cmap.set_bad('white',1.)
@@ -2152,7 +2188,7 @@ class GAIADIS:
 		
 		
 			
-	def calDisAndrawWithOnAndOffCloudStars(self,sourceName,fitsName,maskFITS, gaiaOnsource,gaiaOffsource,baseLine,lRange,bRange,saveFigureName,noiseLevel=1.,signalLevel=5.,smScale=50,draw=True,lowerDisCut=1.,upperDisCut=2000,figNameMark=None,gaiaForeCut=None,inputRow=None):
+	def calDisAndrawWithOnAndOffCloudStars(self,sourceName,fitsName,maskFITS, gaiaOnsource,gaiaOffsource,baseLine,lRange,bRange,saveFigureName,noiseLevel=1.,signalLevel=5.,smScale=50,draw=True,lowerDisCut=1.,upperDisCut=2000,figNameMark=None,gaiaForeCut=None,inputRow=None,correctBaseline=True):
 		
 		"""
 		
@@ -2174,7 +2210,7 @@ class GAIADIS:
 		newDisRow[disTB.sourceName]= sourceName
 		newDisRow[disTB.Note]= figNameMark
  
- 
+
 		newDisRow[disTB.boxCenterL]=  np.mean(lRange)
 		newDisRow[disTB.boxCenterB]=  np.mean(bRange)
 
@@ -2191,7 +2227,7 @@ class GAIADIS:
 		
 		
 		
-		sampleArray, rawDataOn,rawDataOff,rawDataBase,baseline=self.calDisWithG2( gaiaOnsource,gaiaOffsource,baseLine,smScale )
+		sampleArray, rawDataOn,rawDataOff,rawDataBase,baseline=self.calDisWithG2( gaiaOnsource,gaiaOffsource,baseLine,smScale,correctBaseline=correctBaseline )
 		
 		
 		
@@ -2204,7 +2240,12 @@ class GAIADIS:
 		smsortCODis,smsortCOExtention,aa,aa=self.getSmoothArrayWithTB( gaiaOnsource)
 
 		dataDisOnBase=dataDis
-		dataAGOnBase=dataAG- self.getAgBase(dataDis, baseline)
+
+		if correctBaseline:
+			dataAGOnBase=dataAG- self.getAgBase(dataDis, baseline)
+		else:
+			dataAGOnBase=dataAG #- self.getAgBase(dataDis, baseline)
+
 
 		#dataDisOff, dataAGOff,disErrorOff, AGErrorOff=  rawDataOff  ##rawDataBase  rawDataOff
 		#dataDisOnBase, dataAGOnBase,disErrorOnBase, AGErrorOnBase=  rawDataBase  ##rawDataBase  rawDataOff
@@ -2222,7 +2263,7 @@ class GAIADIS:
 		disStd=newDisRow[ disTB.disStd ]  
 		lowerDis=newDisRow[ disTB.disHPDLow ] 
 		upperDis= newDisRow[ disTB.disHPDUp ] 
- 		
+
 
 		
 		disStd= np.std(sampleArray[0],ddof=1) 
@@ -2304,7 +2345,7 @@ class GAIADIS:
   
 		#draw gia baselines 
 		if 1:
-			ax=plt.subplot(gs[6:,6: ])
+			ax=plt.subplot(gs[6:,6: ] ,sharex=axRaw)
 			#ax=plt.subplot(gs[0:5,6: ])
 
 			#ax=plt.subplot2grid((10*nn,10*nn), (0,6),colspan=6,rowspan=4)
@@ -2312,7 +2353,7 @@ class GAIADIS:
 			#maxY= max(smsortCOExtention)+ (np.max(dataAGBase)-max(smsortCOExtention)*0.8)
 			
 			
-			self.drawBaselinePanel( ax,dataDisOnBase,dataAGOnBase,  row=newDisRow ) 
+			self.drawBaselinePanel( ax,dataDisOnBase,dataAGOnBase,  row=newDisRow  )
 				
   
 
@@ -2448,7 +2489,7 @@ class GAIADIS:
 			eachRow[self.GAIA_distanceError]=   round(np.std(dA,ddof=1), 3) 
 		
 
- 		return newTB
+		return newTB
 
 	def cleanOffTBByAgThresh(self,gaiaOffsource,agErrorThresh=0.05):
 		
@@ -2490,7 +2531,10 @@ class GAIADIS:
 		
 		
 		agWeight=1./AGErrorOff**2
-		
+
+		#agWeight=None #1./AGErrorOff**2
+
+
 		#agWeight=  1./offcloudStars[self.agError] 
 
 		baseLine.fit(dataDisOff,dataAGOff,agWeight)
@@ -2638,7 +2682,18 @@ class GAIADIS:
 
  
  
-		 
+
+		#save on and off cloud stars
+		#
+
+		if self.useAV:
+			saveTBOnName=self.tmpPath+self.sourceName+"AV.fit"
+
+		else:
+			saveTBOnName=self.tmpPath+self.sourceName+"AG.fit"
+
+		gaiaOnsource.write(saveTBOnName,overwrite=True)
+
 		sampleArray, rawDataOn,rawDataOff,rawDataBase,baseline=self.calDisWithG2( gaiaOnsource,gaiaOffsource,baseline,smScale )
 		dataDis, dataAG,disError, AGError=rawDataOn 
 
@@ -2919,7 +2974,7 @@ class GAIADIS:
 	def getLBRangeByRow(self, newRow ):
 		boxPosition=self.getBoxPosition(newRow)
 
-		return self.box(boxPosition )
+		return self.boxRegion(boxPosition )
 
 	
 	def calDisWithRowNormal(self,newRow,maskFITS=None,foregroundCOFITS=None,saveFigureName=None):
@@ -2937,7 +2992,7 @@ class GAIADIS:
 		
 		#cutDistanceLower="cutDistanceLower"
 		#="cutDistanceUpper"
-	def box(self,regionCoord):
+	def boxRegion(self,regionCoord):
 
 		"""
 		return lRange and B Range
@@ -2971,7 +3026,7 @@ class GAIADIS:
 			
 			self.calDisNormal(  self.sourcename,getPara=self.redoPara,maskFITS=self.maskFITS, foregroundCOFITS=self.foregroundFITS ) 
 			
- 	
+
 		
 		
 		

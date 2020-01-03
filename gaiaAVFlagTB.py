@@ -134,8 +134,12 @@ class GAIAAVFlag:
  
 		#sqlCommand="select * from {} where  l > {} and l < {} and b > {} and b < {} and dist50>{} and dist50<{}  and parallax_error<parallax*{} and sh_outflag='00000' and sh_gaiaflag='000' ;".format(self.name,sL,eL,sB,eB,lowerDis,upperDis,paraError)
 
-		sqlCommand="select * from {} where  l > {} and l < {} and b > {} and b < {} and dist50>{} and dist50<{}  and parallax_error<parallax*{} and sh_outflag like '0%000' and sh_gaiaflag='000'   ;".format(self.name,sL,eL,sB,eB,lowerDis,upperDis,paraError)
+		#sqlCommand="select * from {} where  l > {} and l < {} and b > {} and b < {} and dist50>{} and dist50<{}  and parallax_error<parallax*{} and sh_outflag like '0%000' and sh_gaiaflag='000'   ;".format(self.name,sL,eL,sB,eB,lowerDis,upperDis,paraError)
+		#sqlCommand="select * from {} where  l > {} and l < {} and b > {} and b < {} and dist50>{} and dist50<{}  and parallax_error<parallax*{} and  sh_outflag like '0%000' and sh_outflag != '01000'  and sh_gaiaflag='000'   ;".format(self.name,sL,eL,sB,eB,lowerDis,upperDis,paraError)
+		#only good values
+		sqlCommand="select * from {} where  l > {} and l < {} and b > {} and b < {} and dist50>{} and dist50<{}  and parallax_error<parallax*{} and    sh_outflag = '00000'  and sh_gaiaflag='000'   ;".format(self.name,sL,eL,sB,eB,lowerDis,upperDis,paraError)
 
+		#sqlCommand="select * from {} where  l > {} and l < {} and b > {} and b < {} and dist50>{} and dist50<{}  and parallax_error<parallax*{} and (sh_outflag  = '00000' or sh_outflag  = '02000' )    and sh_gaiaflag='000'  and ( av84-av50)>0.02 ;".format(self.name,sL,eL,sB,eB,lowerDis,upperDis,paraError)
 
 		# execute SQL query using execute() method.
 		cursor.execute(sqlCommand)
@@ -188,9 +192,10 @@ class GAIAAVFlag:
 		
 		agCol=  TB[ self.av50][:]
 		#agCol.name= 
-		
+		newTB["gaiaAg"]=newTB["a_g_val"].copy() #keep the old ag value
 		newTB[ doAG.GAIA_a_g_val] = agCol
-		
+
+
 		
 		newTB.add_columns( [disCol,  disErrCol ,agErrorCol ])
 

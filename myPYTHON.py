@@ -15,7 +15,6 @@ from astropy.wcs import WCS
 import os
 
 import os.path
-import numpy as np
 import pywcsgrid2
 from matplotlib import rc
 from  mpl_toolkits.axes_grid1.axes_rgb import imshow_rgb
@@ -26,6 +25,15 @@ from numpy import mean, sqrt, square
 
 from subprocess import call 
 import img_scale 
+
+
+from astropy import units as u
+from spectral_cube import SpectralCube
+from astropy.convolution import Gaussian1DKernel
+
+
+
+
 
 paperPath="/Users/qzyan/Desktop/UrsaMajorApJS/"
 
@@ -242,8 +250,34 @@ class myFITS:
 			return np.NaN
 		
 		return data[Z][Y][X]
-		
- 
+
+	@staticmethod
+	def smoothVelAxis(fitsName,targetVelResolution, saveName ):
+		"""
+		Resample a data cube along the velocity
+		:param dadta:
+		:param dataHeader:
+		:param targetVelResolution:
+		:param saveName:
+		:return:
+		"""
+		#
+		cube = SpectralCube.read(fitsName)
+
+		fwhm_factor = np.sqrt(8 * np.log(2))
+
+		#get current reslution
+		fitsPixel = cube.header[""]
+		current_resolution = 0.1 * u.km / u.s
+
+		target_resolution = targetVelResolution * u.km / u.s
+		pixel_scale = 0.1 * u.km / u.s
+		gaussian_width = ((target_resolution ** 2 - current_resolution ** 2) ** 0.5 /
+						  pixel_scale / fwhm_factor)
+		kernel = Gaussian1DKernel(gaussian_width)
+		new_cube = cube.spectral_smooth(kernel)
+		new_cube.write(saveName )
+
 
 	def smoothSpaceFITS(self,data,dataHeader,rawBeam,resultBeam,outPutName): # arcmin
 		
@@ -423,28 +457,69 @@ class myFITS:
 		return  header
 
 
-	def momentFITSGood(self,FITSFile,Vrange,mom=0,outFITS=None, overWrite=True,sigma=3,rms= 0.5 ):
+	def momentFITSGood(self,FITSFile,vRange,mom=0,outFITS=None, overWrite=True,sigma=3,rms= 0.5,dv= 0.158737644553):
 		"""
 		:param FITSFile: The fits used to moment, the rms of the fits is 0.5, and the sigma cut is 3, below which data would be deltedted
-		:param Vrange:
-		:param mom:
+		:param Vrange: the unite is km/s
+		:param mom: usually 0, which is
 		:param outFITS:
 		:param overWrite:
 		:return: No returen, but write the FITS file.
 		"""
 		#first do a normal moments
 
+		minV=min( vRange )
+		maxV=max( vRange )
+
+		vRange=[minV,maxV ]
+
+
 		outMomnetTmp="outMomnetTmp.fits" #infact this is used to save the middle fits produced with momentFITS by Miriad
 
-		self.momentFITS(FITSFile,Vrange,mom,outFITS=outMomnetTmp,overWrite=True)
+		self.momentFITS(FITSFile,vRange,mom,outFITS=outMomnetTmp,overWrite=True)
 
-		data2D,heade2Dr=self.downTo2D(outMomnetTmp,outPUT=outMomnetTmp,overwrite= True)
+
+
+		hdu2D=self.downTo2D(outMomnetTmp,outPUT="FITS2D_"+outMomnetTmp,overwrite= True)
+		data2D=hdu2D.data
+		heade2D=hdu2D.header
 
 		#read FITSFile, and sum the fits mannually
 
+		cubeData,cubeHead=myFITS.readFITS(FITSFile)
+
+		wcs=WCS(cubeHead)
+
+		v0,l0,b0 =wcs.wcs_pix2world(0,0,0,0)
+
+		a,a, indexV0 =wcs.wcs_world2pix(l0,b0, vRange[0]*1000 , 0)
+
+		a,a, indexV1 =wcs.wcs_world2pix(l0,b0, vRange[1]*1000,  0 )
+
+		indexV0,indexV1=map(round,[indexV0,indexV1])
+
+		indexV0,indexV1=map(int,[indexV0,indexV1])
 
 
 
+		sumData= cubeData[ indexV0:indexV1+1,:,: ]
+
+
+
+		sumData[sumData < sigma*rms]=0
+
+
+
+		sum2D=np.sum(sumData,axis=0)
+		sum2D=sum2D*dv
+
+		if outFITS==None:
+			outFITS= FITSFile[:-5] + "_GoodMomo.fits"
+
+		if overWrite:
+			if os.path.isfile(outFITS):
+				os.remove( outFITS )
+			fits.writeto(outFITS,sum2D, header=heade2D)
 
 
 	def momentFITS(self,FITSFile,Vrange,mom,outFITS=None,cutEdge=False,overWrite=True):##Vrange kms
@@ -996,6 +1071,8 @@ class myFITS:
 		
  
 		data=hdu.data
+
+
 		if not Vrange and not Lrange and not Brange:
 			print "No crop range is provided."
 			return
@@ -1004,7 +1081,7 @@ class myFITS:
 
 		zSize,ySize,xSize=data.shape
 
-		
+
 
 		Xrange=[0,xSize-1]  #Galactic Longitude  #
 		Yrange=[0,ySize-1]  #Galactic Longitude  #
@@ -1012,6 +1089,8 @@ class myFITS:
 		
 		firstPoint=wmap.wcs_pix2world(0,0,0,0)
 		lastPoint=wmap.wcs_pix2world(xSize-1,ySize-1,zSize-1,0)
+
+
 
 		if not Vrange:
 			#calculate the range for the 
@@ -1084,6 +1163,82 @@ class myFITS:
 			else:
 				print "Warring----File ({}) exists and no overwriting!".format(outFITS)
 
+	@staticmethod
+	def converto32bit(fitsName,saveFITS=None):
+		"""
+
+		:param fitsName:
+		:param saveFITS:
+		:return:
+		"""
+		if saveFITS==None:
+
+			fitsName=os.path.split(fitsName)[1]
+
+			saveFITS=fitsName[0:-5]+"32bit.fits"
+
+		data,head= myFITS.readFITS(fitsName)
+
+		fits.writeto(saveFITS,np.float32(data),header=head)
+
+
+	@staticmethod
+	def creatPPVHeader(fitsName,saveFITS=None):
+		"""
+		produce the LV header for a fitsName, this function used in dendrogram
+		:param fitsName:
+		:param saveFITS:
+		:return:
+		"""
+
+
+		if saveFITS==None:
+
+			fitsName=os.path.split(fitsName)[1]
+
+			saveFITS=fitsName[0:-5]+"LVHeader.fits"
+
+
+		CO12HDU= fits.open(fitsName)[0]
+		data,head= myFITS.readFITS(fitsName)
+
+		#
+		wcs=WCS(head)
+
+		Nz,Ny,Nx=data.shape
+		beginP=[0, (Ny-1.)/2.]
+
+		endP= [(Nx) , (Ny-1.)/2.]
+		#get pv diagrame
+		widthPix=2
+		from pvextractor import extract_pv_slice,Path
+
+		endpoints = [beginP,endP]
+		xy = Path(endpoints,width= widthPix )
+
+		pv = extract_pv_slice(  CO12HDU, xy)
+
+
+		os.system("rm " +saveFITS )
+
+
+		pv.writeto(saveFITS)
+
+		if 1: #modify the first
+
+			pvData,pvHead=myFITS.readFITS( saveFITS )
+
+			pvHead["CDELT1"]=head["CDELT1"]
+			pvHead["CRPIX1"]=head["CRPIX1"]
+			pvHead["NAXIS1"]=head["NAXIS1"]
+
+			pvHead["CRVAL1"]=head["CRVAL1"]
+
+			os.system("rm " +saveFITS )
+
+
+			fits.writeto(saveFITS,pvData,header=pvHead,overwrite=True)
+
 
 	@staticmethod
 	def getRMS(Array):
@@ -1094,6 +1249,68 @@ class myFITS:
 		Array=np.array(Array)
 		
 		return np.sqrt(np.mean(np.square(Array)))
+
+
+	def getFITSRMS(self, COFITS):
+		"""
+		get the rms distribution
+		:param COFITS:
+		:return:
+
+		#the diea is to use negative value to estimate the rms
+
+		#variant of half  gaussian, a^2=x^2*(1-2./np.pi)
+		"""
+		data,head=self.readFITS(COFITS)
+		sigmaData=np.zeros_like(data[0] )
+		nz,ny,nx=data.shape
+
+
+
+		for i in range(nx):
+			for j in range(ny):
+				spe1=data[:,j,i]
+				spe1=spe1[spe1<0]
+
+				a=np.nanstd( spe1, ddof=1)
+				x=a/np.sqrt(1-2./np.pi)
+
+
+
+				sigmaData[j,i]=x
+
+		fits.writeto( "RMS_"+COFITS, sigmaData, header=head  ,  overwrite=True )
+
+
+
+
+
+
+
+	@staticmethod
+	def getCOFITSNoise(FITSName):
+
+		"""
+		Return the nose RMS of FITS file
+		"""
+
+		#read fits
+
+		fitsRead=fits.open(FITSName)
+
+		head=fitsRead[0].header
+		data=fitsRead[0].data
+
+		negative= data[data<0]
+
+		p=np.abs(negative)
+
+		variance=np.var(p,ddof=1)
+
+		ab=1-2./np.pi
+
+		return np.sqrt( variance/ab  )
+
 
 
 
@@ -1312,10 +1529,45 @@ class myFITS:
 			
 			
 		
+
+	def writeTreeStructure(self,dendro,saveName):
+
+		f=open( saveName,'w')
+
+		#for eachC in self.dendroData:
+		for eachC in dendro:
+
+			parentID=-1
+
+			p=eachC.parent
+
+			if p!=None:
+
+				parentID=p.idx
+
+			fileRow="{} {}".format(eachC.idx,parentID)
+			f.write(fileRow+" \n")
+
+		f.close()
+
 		
-		
-		
-		
+
+	def getRMSFITS(self,fitsCube,saveName):
+		pass
+
+		data,head=self.readFITS(fitsCube)
+
+		data=np.nan_to_num(data)
+
+		#remove positive values
+		data[data>0]=0
+
+		stdFITS=np.std(data, axis=0 )
+
+		stdFITS=stdFITS/np.sqrt( 1-2./np.pi )
+
+		fits.writeto(saveName,stdFITS,header=head,overwrite=True)
+
 	def ZZZ(self):
 		#mark the end of the file
 		p
