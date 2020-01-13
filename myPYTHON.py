@@ -255,6 +255,8 @@ class myFITS:
 	def smoothVelAxis(fitsName,targetVelResolution, saveName ):
 		"""
 		Resample a data cube along the velocity
+		only used for MWISP
+
 		:param dadta:
 		:param dataHeader:
 		:param targetVelResolution:
@@ -262,21 +264,47 @@ class myFITS:
 		:return:
 		"""
 		#
+
+		print "Starting to regrid velocity axis, this may take a little while"
+
 		cube = SpectralCube.read(fitsName)
 
 		fwhm_factor = np.sqrt(8 * np.log(2))
 
 		#get current reslution
-		fitsPixel = cube.header[""]
-		current_resolution = 0.1 * u.km / u.s
+		velPix = cube.header["CDELT3"]/1000. #in km/s 
+		current_resolution = velPix * u.km / u.s
 
 		target_resolution = targetVelResolution * u.km / u.s
-		pixel_scale = 0.1 * u.km / u.s
+		pixel_scale =velPix * u.km / u.s
 		gaussian_width = ((target_resolution ** 2 - current_resolution ** 2) ** 0.5 /
 						  pixel_scale / fwhm_factor)
 		kernel = Gaussian1DKernel(gaussian_width)
 		new_cube = cube.spectral_smooth(kernel)
-		new_cube.write(saveName )
+
+		newDV = 0.2 # km/s
+
+		vAxis = cube.spectral_axis.value/1000. #in
+
+		minV = np.min(vAxis)
+		minV=int(minV)-1
+
+		maxV = np.max(vAxis)
+		maxV=int(maxV)+1
+
+		new_axis=np.arange(minV,maxV,newDV)*1000*u.m/u.s
+
+
+
+		new_axis=new_axis[new_axis >=1000*np.min(vAxis)*u.m/u.s ]
+
+		new_axis=new_axis[new_axis <= 1000*np.max(vAxis)*u.m/u.s]
+
+
+		interp_Cube = cube.spectral_interpolate(new_axis,  suppress_smooth_warning=True)
+
+
+		interp_Cube.write(saveName,overwrite=True )
 
 
 	def smoothSpaceFITS(self,data,dataHeader,rawBeam,resultBeam,outPutName): # arcmin
@@ -1265,25 +1293,12 @@ class myFITS:
 		sigmaData=np.zeros_like(data[0] )
 		nz,ny,nx=data.shape
 
+		data[data>0]=np.NaN
 
+		sigmaData=np.nanstd(data,axis=0, ddof=1 )
+		sigmaData=sigmaData/np.sqrt(1-2./np.pi)
 
-		for i in range(nx):
-			for j in range(ny):
-				spe1=data[:,j,i]
-				spe1=spe1[spe1<0]
-
-				a=np.nanstd( spe1, ddof=1)
-				x=a/np.sqrt(1-2./np.pi)
-
-
-
-				sigmaData[j,i]=x
-
-		fits.writeto( "RMS_"+COFITS, sigmaData, header=head  ,  overwrite=True )
-
-
-
-
+		fits.writeto( "RMS_"+os.path.split(COFITS)[1] ,  sigmaData, header=head  ,  overwrite=True )
 
 
 
@@ -1568,6 +1583,8 @@ class myFITS:
 
 		fits.writeto(saveName,stdFITS,header=head,overwrite=True)
 
+
+
 	def ZZZ(self):
 		#mark the end of the file
-		p
+		pass

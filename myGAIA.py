@@ -1821,9 +1821,9 @@ class GAIADIS:
 			#ax.axvline(meanValues[i], color="black" )
 			#axCorner.title("aaa")
 
-			axCorner.set_title(labels[i],fontsize=12)
+			axCorner.set_title(labels[i],fontsize=11)
 			if i==0  :
-				axCorner.set_title(labels[i],fontsize=14)
+				axCorner.set_title(labels[i],fontsize=12)
 
 			axCorner.axvline(meanValues[i], color="black" ,linestyle='-',linewidth=1.5)
 			axCorner.axvline(meanValues[i]-lowerPHD90[i], color="black" ,linestyle='--',linewidth=1.5)
@@ -1909,7 +1909,7 @@ class GAIADIS:
 
 			axRaw.plot([distance,distance],[minY,maxY*0.9],lw=1,color="black")
 			
-			axRaw.text(distance-dataDis.max()/100.*6,maxY*0.92, r'${}_{{-{}}}^{{+{}}}$ pc'.format(distance,lowerDis,upperDis),fontsize=15)
+			axRaw.text(distance-dataDis.max()/100.*6,maxY*0.92, r'${}_{{-{}}}^{{+{}}}$ pc'.format(distance,lowerDis,upperDis),fontsize=13)
 			
 		
 		axRaw.scatter(dataDis, dataAG, edgecolors='darkgray', facecolors='darkgray',s=2,label="Raw on-cloud stars") # raw data
@@ -1945,7 +1945,7 @@ class GAIADIS:
 		#axRaw.plot([distance,max(dataDis)],[agmu2,agmu2], 'r--',lw=1.5  ,dashes=(4, 2))
 
 		#ax.set_xlabel(r"parallax (mas)",fontsize=17)
-		axRaw.set_xlabel(r"distance (pc)",fontsize=15)
+		axRaw.set_xlabel(r"distance (pc)",fontsize=13)
 		#ax.set_ylabel(r"$\delta$ (Distance to nearest higher density pixels)",fontsize=17)
 		showAV=False
 		
@@ -1954,10 +1954,10 @@ class GAIADIS:
 		
 		if showAV:
 		
-			axRaw.set_ylabel(r"$A_{V}$ (mag)",fontsize=15)
+			axRaw.set_ylabel(r"$A_{V}$ (mag)",fontsize=13)
 		else:
 			
-			axRaw.set_ylabel(r"$A_{G}$ (mag)",fontsize=15)
+			axRaw.set_ylabel(r"$A_{G}$ (mag)",fontsize=13)
 
 		
 		if markLoc==4:
@@ -2003,7 +2003,7 @@ class GAIADIS:
 			ax.fill_betweenx(y=[minY, maxY*0.9], x1=distance-lowerDis, x2=upperDis+distance, color='moccasin',lw=0.1 );
 			ax.plot([distance,distance],[minY,maxY*0.9],lw=1,color="black")
 		
-			ax.text(distance-dataDisOnBase.max()/100.*5,maxY*0.92, r'${}_{{-{}}}^{{+{}}}$ pc'.format(distance,lowerDis,upperDis),fontsize=15)
+			ax.text(distance-dataDisOnBase.max()/100.*5,maxY*0.92, r'${}_{{-{}}}^{{+{}}}$ pc'.format(distance,lowerDis,upperDis),fontsize=13)
 		
 		ax.scatter(dataDisOnBase,dataAGOnBase, edgecolors='darkgray', facecolors='darkgray',s=3,label="Baseline-subtracted raw on-cloud stars ") # raw data
 
@@ -2023,14 +2023,14 @@ class GAIADIS:
 		ax.plot([distance,max(dataDisOnBase)],[agmu2,agmu2], '--',lw=1.5 ,dashes=(4, 2),color='purple')
 
 		#ax.set_xlabel(r"parallax (mas)",fontsize=17)
-		ax.set_xlabel(r"distance (pc)",fontsize=15)
+		ax.set_xlabel(r"distance (pc)",fontsize=13)
 		#ax.set_ylabel(r"$\delta$ (Distance to nearest higher density pixels)",fontsize=17)
 		if self.useAV:
 		
-			ax.set_ylabel(r"$A_{V}$ (mag)",fontsize=15)
+			ax.set_ylabel(r"$A_{V}$ (mag)",fontsize=13)
 		
 		else:
-			ax.set_ylabel(r"$A_{G}$ (mag)",fontsize=15)
+			ax.set_ylabel(r"$A_{G}$ (mag)",fontsize=13)
 
 			
 		ax.legend(loc=2,fontsize=13)
@@ -2185,9 +2185,10 @@ class GAIADIS:
 
 
 		axBack.set_ticklabel_type("absdeg", "absdeg")
-		
-		
-			
+
+		axBack.set_xlabel(r"Galactic Longitude ($^{\circ}$)")
+		axBack.set_ylabel(r"Galactic Latitude ($^{\circ}$)")
+
 	def calDisAndrawWithOnAndOffCloudStars(self,sourceName,fitsName,maskFITS, gaiaOnsource,gaiaOffsource,baseLine,lRange,bRange,saveFigureName,noiseLevel=1.,signalLevel=5.,smScale=50,draw=True,lowerDisCut=1.,upperDisCut=2000,figNameMark=None,gaiaForeCut=None,inputRow=None,correctBaseline=True):
 		
 		"""
@@ -2282,7 +2283,7 @@ class GAIADIS:
 		
 		#print "Including the systematic error is:{}+/-{} pc".format(distance,totalStd)
 
- 
+
 		disStr="{}+/-{} pc".format(distance,totalStd)
 		
 		print "Including the 5% systematic error is:", colored(disStr,"red") #.format(distance,totalStd)
@@ -2320,7 +2321,18 @@ class GAIADIS:
 
 		fig, axs = plt.subplots(ncols=1, nrows=2,figsize=(16.5,8) )  
 		rc('text', usetex=True )
-		rc('text.latex',  preamble=r'\usepackage{upgreek}')
+		#rc('text.latex',  preamble=r'\usepackage{upgreek}')
+		rc('font', **{'family': 'sans-serif',  'size'   : 11,  'serif': ['Helvetica'] })
+		mpl.rcParams['text.latex.preamble'] = [
+			r'\usepackage{tgheros}',  # helvetica font
+			r'\usepackage{sansmath}',  # math-font matching  helvetica
+			r'\sansmath'  # actually tell tex to use it!
+			r'\usepackage{siunitx}',  # micro symbols
+			r'\sisetup{detect-all}',  # force siunitx to use the fonts
+		]
+
+
+
 
 		for ax in  axs  :
 			ax.remove()
@@ -2380,7 +2392,7 @@ class GAIADIS:
 		
 
 		#saveFigureName="{}_{}_{}_{}{}".format( self.sourceRow[disTB.sourceName] ,lowerDisCut,upperDisCut,paraErrorCut,'_extinctionGaiaAgBaseline.pdf')
-
+		#fig.tight_layout()
 		plt.savefig( saveFigureName, bbox_inches="tight")
 
 
