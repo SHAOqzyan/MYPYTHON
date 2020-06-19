@@ -148,6 +148,9 @@ class myFITS:
 		
 		return data[indexZ,indexY,indexX]
 
+
+
+
 	@staticmethod
 	def weighted_avg_and_std(values, weights):
 		"""
