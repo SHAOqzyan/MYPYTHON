@@ -19,7 +19,7 @@ import requests
 
 doFITS=myFITS()
 
-print doFITS.weighted_avg_and_std
+#print doFITS.weighted_avg_and_std
 
 class  MWISPDBSCAN(object):
 
@@ -368,6 +368,11 @@ class  MWISPDBSCAN(object):
         del newTB["major_sigma"]
         del newTB["minor_sigma"]
         del newTB["radius"]
+        del newTB["position_angle"]
+
+
+
+
 
         newTB["v_cen"].unit="km/s"
         newTB["x_cen"].unit="deg"

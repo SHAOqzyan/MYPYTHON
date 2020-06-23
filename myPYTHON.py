@@ -24,8 +24,7 @@ from numpy import mean, sqrt, square
 
 
 
-from subprocess import call 
-import img_scale 
+from subprocess import call
 
 
 from astropy import units as u
