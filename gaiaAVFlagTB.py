@@ -12,8 +12,9 @@ from gaiaTB import GAIATB
 doAG= GAIATB()
 
 class GAIAAVFlag:
-	name='public."MWISPGaiaNew"' #table name 
-	
+	#name='public."MWISPGaiaNew"' #table name
+	name='public."AVall"' #table name
+
 	
 	#MWISPGaiaNew is the table with FLag
 	
@@ -90,7 +91,7 @@ class GAIAAVFlag:
 
 
 
-	def getByLBRange(self,Lrange,Brange,lowerPara=0.2,paraError=0.2,upperPara=None,mimicAG=True):
+	def getByLBRange(self,Lrange,Brange,lowerPara=0.2,paraError=0.2,upperPara=None,mimicAG=True,useHighAv=False):
 		
 		"""
 		dedicated to find other regions that are overlaping with the current source
@@ -135,9 +136,14 @@ class GAIAAVFlag:
 		#sqlCommand="select * from {} where  l > {} and l < {} and b > {} and b < {} and dist50>{} and dist50<{}  and parallax_error<parallax*{} and sh_outflag='00000' and sh_gaiaflag='000' ;".format(self.name,sL,eL,sB,eB,lowerDis,upperDis,paraError)
 
 		#sqlCommand="select * from {} where  l > {} and l < {} and b > {} and b < {} and dist50>{} and dist50<{}  and parallax_error<parallax*{} and sh_outflag like '0%000' and sh_gaiaflag='000'   ;".format(self.name,sL,eL,sB,eB,lowerDis,upperDis,paraError)
-		#sqlCommand="select * from {} where  l > {} and l < {} and b > {} and b < {} and dist50>{} and dist50<{}  and parallax_error<parallax*{} and  sh_outflag like '0%000' and sh_outflag != '01000'  and sh_gaiaflag='000'   ;".format(self.name,sL,eL,sB,eB,lowerDis,upperDis,paraError)
+
+		#includeHighValues	# 01000 negative values, 03000, high AV values
+		if useHighAv:
+			sqlCommand="select * from {} where  l > {} and l < {} and b > {} and b < {} and dist50>{} and dist50<{}  and parallax_error<parallax*{} and  sh_outflag like '0%000' and sh_outflag != '01000'    and sh_gaiaflag='000'   ;".format(self.name,sL,eL,sB,eB,lowerDis,upperDis,paraError)
 		#only good values
-		sqlCommand="select * from {} where  l > {} and l < {} and b > {} and b < {} and dist50>{} and dist50<{}  and parallax_error<parallax*{} and    sh_outflag = '00000'  and sh_gaiaflag='000'   ;".format(self.name,sL,eL,sB,eB,lowerDis,upperDis,paraError)
+		else:
+			#sqlCommand="select * from {} where  l > {} and l < {} and b > {} and b < {} and dist50>{} and dist50<{}  and parallax_error<parallax*{} and    sh_outflag = '00000'  and sh_gaiaflag='000'   ;".format(self.name,sL,eL,sB,eB,lowerDis,upperDis,paraError)
+			sqlCommand="select * from {} where  l > {} and l < {} and b > {} and b < {} and dist50>{} and dist50<{}  and parallax_error<parallax*{} and    sh_outflag like '0%000' and sh_outflag != '01000' and sh_outflag != '03000'   and sh_gaiaflag='000'   ;".format(self.name,sL,eL,sB,eB,lowerDis,upperDis,paraError)
 
 		#sqlCommand="select * from {} where  l > {} and l < {} and b > {} and b < {} and dist50>{} and dist50<{}  and parallax_error<parallax*{} and (sh_outflag  = '00000' or sh_outflag  = '02000' )    and sh_gaiaflag='000'  and ( av84-av50)>0.02 ;".format(self.name,sL,eL,sB,eB,lowerDis,upperDis,paraError)
 

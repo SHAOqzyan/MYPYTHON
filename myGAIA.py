@@ -118,7 +118,7 @@ class GAIADIS:
 
 	tmpPath="/home/qzyan/WORK/myDownloads/GaiaTmpFiles/"
 
-	offColor="cyan"
+	offColor="dodgerblue"
 
 	def __init__(self,sourceName="test",useAV=False, maskFITS=None,useBaseLine=False,disTBPath=None,redoPara=False,foregroundFITS=None): 
 
@@ -1746,7 +1746,7 @@ class GAIADIS:
 
 	def drawCorner(self,fig,sampleArray,newDisRow,nn,lineColor='black'):
 
-		lineColor='cyan'
+		lineColor='black'
 
 		distance=newDisRow[ disTB.distance ]  
 		lowerDis=newDisRow[ disTB.disHPDLow ]
@@ -1811,7 +1811,7 @@ class GAIADIS:
 
 		axLabels=["$D$ (pc)","$\mu_1$ (mag)", "$\sigma_1$ (mag)", "$\mu_2$ (mag)", "$\sigma_2$ (mag)", ]
 
-		figureCorner = corner.corner(sampleArray, labels=axLabels, fig=fig,  show_titles=True, color='blue',  hist2d_kwargs={"contourf_kwargs": {"cmap":"jet"}  } )
+		figureCorner = corner.corner(sampleArray, labels=axLabels, fig=fig,  show_titles=True,   hist2d_kwargs={"contourf_kwargs": {"cmap":"jet"}  } )
 
 
 		ndim=5
@@ -1826,17 +1826,18 @@ class GAIADIS:
 			#ax.axvline(meanValues[i], color="black" )
 			#axCorner.title("aaa")
 
-			axCorner.set_title(labels[i],fontsize=11,color="cyan")
+			axCorner.set_title(labels[i],fontsize=11 )
 			if i==0  :
 				axCorner.set_title(labels[i],fontsize=12)
-			self.setAxColor(axCorner, lineColor )
+			#self.setAxColor(axCorner, lineColor )
 			axCorner.axvline(meanValues[i], color= lineColor ,linestyle='-',linewidth=1.5)
 			axCorner.axvline(meanValues[i]-lowerPHD90[i], color= lineColor ,linestyle='--',linewidth=1.5)
 			axCorner.axvline(meanValues[i]+upperPHD90[i], color= lineColor  ,linestyle='--',linewidth=1.5)
-			
-		for eachAXX in 	axes:
-			for eachAXy in eachAXX:
-				self.setAxColor( eachAXy , lineColor )
+
+
+		#for eachAXX in 	axes:
+			#for eachAXy in eachAXX:
+				#self.setAxColor( eachAXy , lineColor )
 		
 		#Add labels
 
@@ -1937,7 +1938,8 @@ class GAIADIS:
 			axRaw.scatter(dataDisOff,dataAGOff, facecolors=self.offColor,s=6, edgecolors=self.offColor,label="Binned off-cloud stars" )
 		
  
-		axRaw.scatter(smsortCODis, smsortCOExtention, edgecolors="lime" ,facecolors='lime',s=6,label="Binned on-cloud stars")
+		#axRaw.scatter(smsortCODis, smsortCOExtention, edgecolors="lime" ,facecolors='lime',s=6,label="Binned on-cloud stars")
+		axRaw.scatter(smsortCODis, smsortCOExtention, edgecolors="green" ,facecolors='green',s=6,label="Binned on-cloud stars")
 
 
 		#sourceName=""
@@ -1987,7 +1989,7 @@ class GAIADIS:
 			axRaw.legend(loc=4,fontsize=13)
 			#print "??????4444444???????????"
 		axRaw.set_ylim(minY-0.5, max( max(smsortCOExtention)+1.0,minY+0.4)  )
-		self.setAxColor(axRaw,"cyan")
+		#self.setAxColor(axRaw,"cyan")
 		#change the color of the axis
 
 		#for t in axRaw.xaxis.get_ticklines(): t.set_color('blue')
@@ -2034,14 +2036,13 @@ class GAIADIS:
 		
 			ax.text(distance-dataDisOnBase.max()/100.*5,maxY*0.92, r'${}_{{-{}}}^{{+{}}}$ pc'.format(distance,lowerDis,upperDis),fontsize=13)
 		
-		ax.scatter(dataDisOnBase,dataAGOnBase, edgecolors='purple', facecolors='purple',s=5,label="Baseline-subtracted raw on-cloud stars ") # raw data
-
-		
+		ax.scatter(dataDisOnBase,dataAGOnBase, edgecolors='darkgray', facecolors='darkgray',s=5,label="Baseline-subtracted raw on-cloud stars ") # raw data
 
 
 		if gaiaForeCut!=None:
 		
 			ax.scatter(dataDisFore, dataAGFore-baseline.predict(dataDisFore), edgecolors='black', facecolors='black',s=2,label="Removed on-cloud foreground stars") # raw data
+
 
 
 		#ax.scatter(smsortCOPara, smsortCOExtention, edgecolors="g" ,facecolors='g',s=8,label="Binned on-cloud stars")
@@ -2065,7 +2066,7 @@ class GAIADIS:
 		ax.legend(loc=2,fontsize=13)
 
 		ax.set_ylim(minY-0.5, max(dataAGOnBase)+1.0)
-		self.setAxColor(ax,"cyan")
+		#self.setAxColor(ax,"cyan")
 
 
 	def drawCloudFITS(self,fitsName, axBack,backData, backHead,lRange,bRange,noiseLevel,signalLevel,gaiaOnsource,gaiaOffsource, maskFITS=None,drawOffStar=True):
@@ -2363,7 +2364,7 @@ class GAIADIS:
 			r'\sisetup{detect-all}',  # force siunitx to use the fonts
 		]
 
-		mpl.rc("axes",edgecolor="cyan") #WMISP
+		#mpl.rc("axes",edgecolor="cyan") #WMISP
 
 
 		for ax in  axs  :
@@ -2433,9 +2434,11 @@ class GAIADIS:
 		#plt.show()
 		if "pdf" in saveFigureName:
 			saveFigureName=saveFigureName.replace(".pdf",".png")
-			plt.savefig( saveFigureName, bbox_inches="tight",dpi=600,  transparent=True  )
- 
-		#saveFigureName=sourceName #+  #"{}_{}_{}_{}{}".format(self.sourceRow[disTB.sourceName],lowerDisCut,upperDisCut,paraErrorCut,'_extinctionGaiaAgBaseline.png')
+			#plt.savefig( saveFigureName, bbox_inches="tight",dpi=600,  transparent=True  )
+
+			plt.savefig(saveFigureName, bbox_inches="tight", dpi=300 )
+
+#saveFigureName=sourceName #+  #"{}_{}_{}_{}{}".format(self.sourceRow[disTB.sourceName],lowerDisCut,upperDisCut,paraErrorCut,'_extinctionGaiaAgBaseline.png')
 
 		print "saving as: " ,saveFigureName
 
@@ -3072,8 +3075,6 @@ class GAIADIS:
 			self.calDisNormal(  self.sourcename,getPara=self.redoPara,maskFITS=self.maskFITS, foregroundCOFITS=self.foregroundFITS ) 
 			
 
-		
-		
 		
 
 	def ZZZ(self):

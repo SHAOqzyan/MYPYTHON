@@ -531,6 +531,8 @@ class myFITS:
 		header["NAXIS"]=3
 		
 		try:
+			del header["NAXIS4"]
+
 			del header["CRPIX4"]		
 			del header["CDELT4"]		
 			del header["CRVAL4"]		
@@ -596,7 +598,7 @@ class myFITS:
 
 
 
-		sum2D=np.sum(sumData,axis=0)
+		sum2D=np.sum(sumData,axis=0,dtype=float)
 		sum2D=sum2D*dv
 
 		if outFITS==None:
@@ -953,17 +955,22 @@ class myFITS:
 		processFolder=Survey.replace(" ","")+"_Mosaic"
 
 		if downLoadPath ==None:
-
 			downLoadPath="./{}/".format(processFolder)
+
 		os.system("mkdir "+downLoadPath)
 
-
 		centerL,centerB=np.mean(LRange),np.mean(BRange)
-		
+
+
+
+
 		if not Pixels and not size:
 
 			print "No download size is assigned, quit"
 			return
+
+
+
 
 		if Original:
 			#if the largest pixel resolution is wanted
@@ -977,15 +984,19 @@ class myFITS:
 				Pixels=size/resolution
 				
 
+
+
+
 		if not Original:
 
 			#in this case, pixels and size must be provided
-
-
 			if not size:
 				size=""
 			if not Pixels:
 				Pixels=""
+
+
+
 
 		#download with pixels and size assigned
 
@@ -1064,6 +1075,20 @@ class myFITS:
 		os.system("rm checkRes.fits")
 
 		return abs(header["CDELT1"])# return degree
+
+
+
+
+	@staticmethod
+	def find_nearestIndex(  a, a0):
+		"Element in nd array `a` closest to the scalar value `a0`"
+
+		idx = np.abs(a - a0).argmin()
+		return idx
+
+
+
+
 	@staticmethod
 	def getSurvey(Survey,LB,outputFITS=None, Pixels=None,size=None):
 		"""
@@ -1115,7 +1140,36 @@ class myFITS:
 		#call("./skvbatch_wget file=example2.fits position='0,0' Survey='Digitized Sky Survey' Coordinats=Galactic  Projection=Car size=0.5")
 
 
+ 	def reverseVelAxis( self,inFITS ,outFITS=None):
+		"""
 
+		:param inFITS:
+		:param outFITS:
+		:return:
+		"""
+
+		data,head=self.readFITS(inFITS)
+		if len(data.shape)==4:
+			head=self.convert4DTo3D(head)
+
+			data=data[0]
+		Nz,Ny,Nx=data.shape
+
+		dataReverse= np.flip(data,0)
+
+		head["CDELT3"] =  abs(head["CDELT3"])
+		referencePoint= head["CRPIX3"]
+		head["CRPIX3"]= Nz - referencePoint +1
+
+		#needto
+
+		path,baseName=os.path.split(inFITS)
+		saveFITS=os.path.join(path,baseName[0:-5]+"_Reverse.fits")
+
+		fits.writeto(saveFITS, dataReverse,header=head,overwrite=True )
+
+
+		return saveFITS
 
 	@staticmethod
 	def cropFITS(inFITS,outFITS=None,Vrange=None,Lrange=None,Brange=None,overWrite=False):
@@ -1137,26 +1191,26 @@ class myFITS:
 		
  
 
-		hdu=fits.open(inFITS)[0]		
+		hdu=fits.open(inFITS)[0]
 		
-		goodHeader=hdu.header
+		data,goodHeader= hdu.data,hdu.header
 		#goodHeader["BITPIX"]=
 		#datacut=np.float32(datacut) #use 32bit
 
-		try :
-			del goodHeader["CTYPE4"]
-			del goodHeader["CRVAL4"]
-			del goodHeader["CDELT4"]
+		try:
 			del goodHeader["CRPIX4"]
+			del goodHeader["CDELT4"]
+			del goodHeader["CRVAL4"]
+			del goodHeader["CTYPE4"]
 			del goodHeader["CROTA4"]
+
 		except:
 			pass
-		 
-		
-		wmap=WCS(goodHeader)
-		
- 
-		data=hdu.data
+
+
+
+		wmap=WCS(goodHeader,naxis=3)
+
 
 
 		if not Vrange and not Lrange and not Brange:
@@ -1164,6 +1218,11 @@ class myFITS:
 			return
 		
 		#Examine the maximum number for pixels
+		if len(data.shape)==4:
+			data=data[0] #down to 3D
+
+
+
 
 		zSize,ySize,xSize=data.shape
 
@@ -1248,7 +1307,7 @@ class myFITS:
 
 			else:
 				print "Warring----File ({}) exists and no overwriting!".format(outFITS)
-
+		return outFITS
 	@staticmethod
 	def converto32bit(fitsName,saveFITS=None):
 		"""
@@ -1508,7 +1567,7 @@ class myFITS:
 			else:
 				print "Warring----File ({}) exists and no overwriting!".format(outFITS)
 
-
+		return outFITS
  
 	@staticmethod
 	###############Static functions#######################
@@ -1584,7 +1643,7 @@ class myFITS:
 		# resolution
 		res=30./3600. 
 
-		PVData2D=np.sum(data,axis=1)*res
+		PVData2D=np.sum(data,axis=1,dtype=float)*res
 
 		
 		

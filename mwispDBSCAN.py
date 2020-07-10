@@ -283,6 +283,7 @@ class  MWISPDBSCAN(object):
             return self.labelFITSName[0:-5]+"_Clean.fit"
 
 
+
     def getCatFromLabelArray(self,doClean=True ):
         """
         Extract catalog from label fits, the minPix and rms is only used for saving
@@ -301,6 +302,19 @@ class  MWISPDBSCAN(object):
             return
 
         dataCluster, headCluster = myFITS.readFITS(self.labelFITSName)
+
+
+        #calculate the area of one pixel
+
+        sizeL=  headCluster["CDELT1"]*60
+        sizeB= headCluster["CDELT2"]*60
+
+        sizeB=abs(sizeB) #in arcmin
+        sizeL=abs(sizeL) #in arcmin
+
+        pixelArea= sizeB*sizeL
+
+
         Nz, Ny, Nx = dataCluster.shape
 
         if self.rawCOFITS is None:
@@ -431,6 +445,7 @@ class  MWISPDBSCAN(object):
 
             # i would be the newID
             newID = GoodIDs[i]
+
             pixN = GoodCount[i]
 
             newRow = newTB[0]
@@ -452,8 +467,10 @@ class  MWISPDBSCAN(object):
             peak=coValues[peakIndex]
             # #criteria 2
 
+
             if peak < self.minPeakSigma * self.rmsData[peakB,peakL] and doClean:  #  accurate to lines
                 continue #do not consider the minimum peaks
+
 
 
             # #criteria 3, check consecutive channels
@@ -500,7 +517,7 @@ class  MWISPDBSCAN(object):
             # area_accurate=np.sum( np.cos( np.deg2rad(BS2D) )    )*0.25
             # newRow["area_accurate"]= area_accurate
 
-            sumCO = np.sum(coValues)
+            sumCO = np.sum(coValues,dtype=np.float64) #float32 is not enough for large molecular clouds
 
             Vcen, Vrms = doFITS.weighted_avg_and_std(cloudV, coValues)
             Bcen, Brms = doFITS.weighted_avg_and_std(cloudB, coValues)
@@ -511,7 +528,7 @@ class  MWISPDBSCAN(object):
             # LBcore = zip(cloudB, cloudL)
             # pixelsN= {}.fromkeys(LBcore).keys() #len( set(LBcore) )
             # area_exact=len(pixelsN)*0.25 #arc mins square
-            area_exact = np.sum(zeroProjection) * 0.25
+            area_exact = np.sum(zeroProjection) * pixelArea  
 
             newRow["area_exact"] = area_exact
 
@@ -524,6 +541,7 @@ class  MWISPDBSCAN(object):
             newRow["peakV"] = peakV
             newRow["peakB"] = peakB
             newRow["peakL"] = peakL
+
 
             # newRow["peak2"]= peak2
 
@@ -548,6 +566,8 @@ class  MWISPDBSCAN(object):
 
             zeroProjection[projectIndex] = 0
             zeroProjectionExtend[0:-1, 0:-1] = zeroProjection
+
+
 
             pbar.update(i)
 
@@ -621,6 +641,110 @@ class  MWISPDBSCAN(object):
 
 
 
+    def produceCloudIntFITS(self,rawCOFITS,LabelCOFITS,tbFile, outputPath="./", minimumArea=54):
+        """
+        the minimum Area of 0.015 square deg = 54 square arcmin, is the largest cloud we coud perform distance examination
+
+        :param rawCOFITS:
+        :param LabelCOFITS:
+        :param tb:
+        :param minimumArea:
+        :return:
+        """
+
+        TB=Table.read(tbFile)
+
+        TB=TB[TB["area_exact"]>=minimumArea] #only select large angular size molecular clouds
+
+        TB.sort("area_exact")
+        TB.reverse()
+
+        dataCO,headCO=myFITS.readFITS(rawCOFITS)
+        coSpec0, vaxis0 = doFITS.getSpectraByIndex( dataCO,headCO,0,0 )
+
+        #Nz,Ny,Nx=dataCO.shape
+
+
+
+
+        dataCluster,headCluster=myFITS.readFITS( LabelCOFITS  )
+
+        ####################
+
+        clusterIndex1D = np.where(dataCluster > 0)
+        clusterValue1D = dataCluster[clusterIndex1D]
+        Z0, Y0, X0 = clusterIndex1D
+
+        velsolution = vaxis0[1]- vaxis0[0]
+
+        ################
+        projection0=np.zeros_like(dataCO[0])
+
+
+
+        widgets = ['Integrating cloud fits:', Percentage(), ' ', Bar(marker='0', left='[', right=']'), ' ', ETA(), ' ',   FileTransferSpeed()]  # see docs for other options
+
+        pbar = ProgressBar(widgets=widgets, maxval=len(TB))
+        pbar.start()
+        indexRun = 0
+
+        for eachDBRow in TB:
+            indexRun = indexRun + 1
+            pbar.update(indexRun)
+            cloudID = eachDBRow["_idx"]
+
+            cloudIndex = self.getIndices(Z0, Y0, X0, clusterValue1D, cloudID)
+            iz,iy,ix=cloudIndex
+
+            projectIndices=tuple( [iy,ix] )
+            ############ determine v range
+            centerV=eachDBRow["v_cen"]
+            dv=eachDBRow["v_rms"]
+            vRange= [centerV-dv*3, centerV+dv*3]
+            startV0,endVindex= self.getVindexRange(vaxis0, vRange )
+
+            cropCOCube=dataCO[startV0:endVindex+1]
+
+            sumCO=np.sum( cropCOCube, axis=0,dtype=float )*velsolution
+
+            saveIntFITSname= os.path.join( outputPath , "Cloud{}_int.fits".format( cloudID  ) )
+            saveMaskFITSname= os.path.join( outputPath , "Cloud{}_mask.fits".format( cloudID  )  )
+
+
+
+            projection0[projectIndices] =1
+
+            fits.writeto(saveMaskFITSname, projection0, header=headCluster, overwrite=True)
+            fits.writeto(saveIntFITSname, sumCO, header=headCluster, overwrite=True)
+
+            projection0[projectIndices] =0
+
+            #zeroCluster[cloudIndex] = cloudID  # remove this cluster and do not record this cluster
+
+        pbar.finish()
+        #fits.writeto(saveCleanFITSName,returnCluster,header=headCluster,overwrite=True)
+
+
+
+
+    def getVindexRange(self,vaxis,vRange):
+        """
+
+        :param vaxis:
+        :param vRange:
+        :return:
+        """
+
+        minValue = min( vRange )
+        maxValue = max( vRange )
+
+        indexV0=doFITS.find_nearestIndex(vaxis,minValue)
+        indexV1=doFITS.find_nearestIndex(vaxis,maxValue)
+
+        return [indexV0, indexV1]
+
+
+
     def produceCleanFITS(self):
         """
         remove noise cluster according to the label fits and catFITS name
@@ -649,7 +773,7 @@ class  MWISPDBSCAN(object):
         TB=Table.read(targetTBFile)
         dataCluster,headCluster=doFITS.readFITS(self.labelFITSName)
         noiseLabel = np.min(dataCluster[0])
-        clusterIndex1D = np.where(dataCluster > 0)
+        clusterIndex1D = np.where(dataCluster > noiseLabel )
         clusterValue1D = dataCluster[clusterIndex1D]
         Z0, Y0, X0 = clusterIndex1D
 
@@ -679,3 +803,5 @@ class  MWISPDBSCAN(object):
         self.cleanFITSName=saveCleanFITSName
         return saveCleanFITSName
 
+    def ZZZ(self):
+        pass
