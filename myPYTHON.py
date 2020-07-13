@@ -1171,6 +1171,121 @@ class myFITS:
 
 		return saveFITS
 
+
+	@staticmethod
+	def cropWithCube(inFITS,outFITS=None,Vrange=None,Lrange=None,Brange=None,overWrite=False):
+
+		hdu = fits.open(inFITS)[0]
+
+		data, goodHeader = hdu.data, hdu.header
+		# goodHeader["BITPIX"]=
+		# datacut=np.float32(datacut) #use 32bit
+
+		try:
+			del goodHeader["CRPIX4"]
+			del goodHeader["CDELT4"]
+			del goodHeader["CRVAL4"]
+			del goodHeader["CTYPE4"]
+			del goodHeader["CROTA4"]
+
+		except:
+			pass
+
+		wmap = WCS(goodHeader, naxis=3)
+
+		if not Vrange and not Lrange and not Brange:
+			print "No crop range is provided."
+			return
+
+		# Examine the maximum number for pixels
+		if len(data.shape) == 4:
+			data = data[0]  # down to 3D
+
+		zSize, ySize, xSize = data.shape
+
+		Xrange = [0, xSize - 1]  # Galactic Longitude  #
+		Yrange = [0, ySize - 1]  # Galactic Longitude  #
+		Zrange = [0, zSize - 1]  # Galactic Longitude  #
+
+		firstPoint = wmap.wcs_pix2world(0, 0, 0, 0)
+		lastPoint = wmap.wcs_pix2world(xSize - 1, ySize - 1, zSize - 1, 0)
+
+		if not Vrange:
+			# calculate the range for the
+			Zrange = [firstPoint[2], lastPoint[2]]
+		else:
+			Zrange = np.array(Vrange) * 1000
+
+		if not Lrange:
+			Xrange = [firstPoint[0], lastPoint[0]]
+		else:
+			Xrange = Lrange
+
+		if not Brange:
+			Yrange = [firstPoint[1], lastPoint[1]]
+		else:
+			Yrange = Brange
+
+		# revert Galactic longtitude
+		if lastPoint[0] < firstPoint[0]:
+			Xrange = [max(Xrange), min(Xrange)]
+		# print lastPoint[0],firstPoint[0]
+
+		# print Xrange,Yrange,Zrange
+		cutFIRST = wmap.wcs_world2pix(Xrange[0], Yrange[0], Zrange[0], 0)
+		cutLAST = wmap.wcs_world2pix(Xrange[1], Yrange[1], Zrange[1], 0)
+
+		cutFIRST = map(round, cutFIRST)
+		cutLAST = map(round, cutLAST)
+
+		cutFIRST = map(int, cutFIRST)
+		cutLAST = map(int, cutLAST)
+
+
+
+
+
+
+		cutFIRST[0] = max(0, cutFIRST[0])
+		cutFIRST[1] = max(0, cutFIRST[1])
+		cutFIRST[2] = max(0, cutFIRST[2])
+
+		cutLAST[0] = min(xSize - 1, cutLAST[0]) + 1
+		cutLAST[1] = min(ySize - 1, cutLAST[1]) + 1
+		cutLAST[2] = min(zSize - 1, cutLAST[2]) + 1
+
+		#
+
+		cube = SpectralCube.read(inFITS)
+
+		sub_cube = cube[cutFIRST[2]:cutLAST[2], cutFIRST[1]:cutLAST[1], cutFIRST[0]:cutLAST[0]]
+
+
+
+		if not outFITS:
+			"""
+			If no output file Name is provide
+			"""
+			outFITS = inFITS[:-5] + "_C.fits"
+
+		if not os.path.isfile(outFITS):
+			sub_cube.write( outFITS )
+			#fits.writeto(outFITS, datacut, header=wmapcut.to_header())
+
+		else:
+
+			if overWrite:
+				# delete that file
+				os.remove(outFITS)
+				sub_cube.write(outFITS)
+
+				# hdu.data=datacut
+				#fits.writeto(outFITS, datacut, header=wmapcut.to_header())
+
+			else:
+				print "Warring----File ({}) exists and no overwriting!".format(outFITS)
+		return outFITS
+
 	@staticmethod
 	def cropFITS(inFITS,outFITS=None,Vrange=None,Lrange=None,Brange=None,overWrite=False):
 		"""
@@ -1265,6 +1380,7 @@ class myFITS:
 
 
 
+
 		cutFIRST=map(round,cutFIRST)
 		cutLAST=map(round,cutLAST)
 
@@ -1278,6 +1394,9 @@ class myFITS:
 		cutLAST[0]=min(xSize-1,cutLAST[0])+1
 		cutLAST[1]=min(ySize-1,cutLAST[1])+1
 		cutLAST[2]=min(zSize-1,cutLAST[2])+1
+
+
+
 		#calculate the true pixels according to the input range
 		wmapcut=wmap[cutFIRST[2]:cutLAST[2],cutFIRST[1]:cutLAST[1],cutFIRST[0]:cutLAST[0]]
 		datacut=data[cutFIRST[2]:cutLAST[2],cutFIRST[1]:cutLAST[1],cutFIRST[0]:cutLAST[0]]
@@ -1285,7 +1404,12 @@ class myFITS:
 
 		#hdu = fits.PrimaryHDU(datacut,header=wmapcut)
 		datacut=np.float32(datacut)
-		
+
+
+
+
+
+
 		if not outFITS:
 			"""
 			If no output file Name is provide
