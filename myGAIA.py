@@ -805,8 +805,9 @@ class GAIADIS:
 		disStd= round(disStd)
 		disStd=int(disStd)
 		distanceStd=disStd
-		print "The distance of {} is: {}+/-{} pc. ".format(self.sourceName,distance,disStd),
-		
+		#print "The distance of {} is: {}+{}/-{} pc. ".format(self.sourceName,distance,disStd),
+		print "The distance of {} is: {:.0f}+{:.0f}/-{:.0f} pc. ".format(self.sourceName,distance,upperDis,lowerDis),
+
 		totalStd=( 0.05*distance )**2 +disStd**2
 		
 		totalStd=totalStd**0.5
@@ -1666,12 +1667,15 @@ class GAIADIS:
 		
 		#int fits should not be none 
 		TB=self.assignOnsourceGaia(TB,intFITS)
-		
-		TB.add_index(self.coint)
-		gaiaOnCloudStars=TB.loc[self.coint,SL:]
+
+
+		#need to remove nan values
+
+		#TB.add_index(self.coint)
+		gaiaOnCloudStars= TB[TB[self.coint] >=SL ] #TB.loc[self.coint,SL:]
 				
 				
-		gaiaOffCloudStars=TB.loc[self.coint,  :NL]
+		gaiaOffCloudStars= TB[TB[self.coint] <= NL ]  #TB.loc[self.coint,  :NL]
 		
 		#
 		
@@ -2069,7 +2073,7 @@ class GAIADIS:
 		#self.setAxColor(ax,"cyan")
 
 
-	def drawCloudFITS(self,fitsName, axBack,backData, backHead,lRange,bRange,noiseLevel,signalLevel,gaiaOnsource,gaiaOffsource, maskFITS=None,drawOffStar=True):
+	def drawCloudFITS(self,fitsName, axBack,backData, backHead,lRange,bRange,noiseLevel,signalLevel,gaiaOnsource,gaiaOffsource, maskFITS=None,drawOffStar=True,vlsr=None):
 		"""
 		"""
 		if len( backData.shape)==3:
@@ -2153,7 +2157,12 @@ class GAIADIS:
  
 			axBack[WCS(cropHeadMask)].contour(cropDataMask,  [1],cmap=cmap,vmin= 0.99,vmax=signalLevel*1.1, linewidths=0.5)
 		
-		
+
+
+
+
+
+
 		
 		cmap2 = plt.cm.winter
 		cmap2.set_bad('white',1.)
@@ -2161,10 +2170,8 @@ class GAIADIS:
 
 		print "..............."
 
-
-		print np.max(  cropData)
-
-		print np.min(  cropData),signalLevel
+		print np.max(  cropData),"CO peak"
+		print np.min(  cropData),signalLevel,"crop CO"
 
 
 
@@ -2219,15 +2226,33 @@ class GAIADIS:
 
 		axBack.set_xlabel(r"Galactic Longitude ($^{\circ}$)")
 		axBack.set_ylabel(r"Galactic Latitude ($^{\circ}$)")
-		#self.setAxColor(axBack)
-	def calDisAndrawWithOnAndOffCloudStars(self,sourceName,fitsName,maskFITS, gaiaOnsource,gaiaOffsource,baseLine,lRange,bRange,saveFigureName,noiseLevel=1.,signalLevel=5.,smScale=50,draw=True,lowerDisCut=1.,upperDisCut=2000,figNameMark=None,gaiaForeCut=None,inputRow=None,correctBaseline=True):
+
+		if vlsr is not None:  # display radial veloicty
+
+			if vlsr<0:
+				vlsrStr= r"$-${:.1f} km s$^{{-1}}$".format( abs(vlsr))
+			else:
+				vlsrStr= r"{:.1f} km s$^{{-1}}$".format( abs(vlsr))
+
+
+			import matplotlib.patheffects as path_effects
+			text = axBack.text( x0+15 , y1-18, vlsrStr , color='white', alpha=0.8, fontsize=10, 	horizontalalignment='left', verticalalignment='center',  bbox={'facecolor': 'gray', "edgecolor":'gray', 'alpha': 0.5, 'pad': 2} )
+			text.set_path_effects([path_effects.Stroke(linewidth=0.8, foreground="black"), path_effects.Normal()])
+
+
+
+	#self.setAxColor(axBack)
+	def calDisAndrawWithOnAndOffCloudStars(self,sourceName,fitsName,maskFITS, gaiaOnsource,gaiaOffsource,baseLine,lRange,bRange,saveFigureName,noiseLevel=1.,signalLevel=5.,smScale=50,draw=True,lowerDisCut=1.,upperDisCut=2000,figNameMark=None,gaiaForeCut=None,inputRow=None, vlsr=None, correctBaseline=True):
 		
 		"""
 		
 		smScale is 50 pc,
 		
 		"""
-		
+
+
+
+
 		if inputRow==None:
 			disCatTB=disTB( )
 
@@ -2302,8 +2327,9 @@ class GAIADIS:
 		disStd= round(disStd)
 		disStd=int(disStd)
 		distanceStd=disStd
-		print "The distance of {} is: {}+/-{} pc. ".format(sourceName,distance,disStd),
-		
+		#print "The distance of {} is: {}+/-{} pc. ".format(sourceName,distance,disStd),
+		print "The distance of {} is: {:.0f}+{:.0f}/-{:.0f} pc. ".format(self.sourceName,distance,upperDis,lowerDis),
+
 		totalStd=( 0.05*distance )**2 +disStd**2
 		
 		totalStd=totalStd**0.5
@@ -2420,7 +2446,7 @@ class GAIADIS:
 
 		
 
-		self.drawCloudFITS( fitsName, axBack,backData, backHead,lRange,bRange,noiseLevel,signalLevel , gaiaOnsource,gaiaOffsource, maskFITS=maskFITS) 
+		self.drawCloudFITS( fitsName, axBack,backData, backHead,lRange,bRange,noiseLevel,signalLevel , gaiaOnsource,gaiaOffsource, maskFITS=maskFITS,vlsr=vlsr)
 
 		#plt.show()
 
@@ -2429,6 +2455,7 @@ class GAIADIS:
 		plt.savefig( saveFigureName, bbox_inches="tight")
 		#plt.savefig( saveFigureName )
 
+		print "saving as: " ,saveFigureName
 
 		#plt.savefig(  self.sourceName+'_extinctionGaiaAg.pdf', bbox_inches="tight")
 		#plt.show()
@@ -2436,7 +2463,7 @@ class GAIADIS:
 			saveFigureName=saveFigureName.replace(".pdf",".png")
 			#plt.savefig( saveFigureName, bbox_inches="tight",dpi=600,  transparent=True  )
 
-			plt.savefig(saveFigureName, bbox_inches="tight", dpi=300 )
+			plt.savefig(saveFigureName, bbox_inches="tight", dpi=200 )
 
 #saveFigureName=sourceName #+  #"{}_{}_{}_{}{}".format(self.sourceRow[disTB.sourceName],lowerDisCut,upperDisCut,paraErrorCut,'_extinctionGaiaAgBaseline.png')
 
@@ -2611,7 +2638,7 @@ class GAIADIS:
 		fitsName= testRow[disTB.fitsFile] 
 
 		sourceName=	 testRow[disTB.sourceName] 
-
+		vlsr= testRow["vlsr"]
 
 		gaiaAll=self.getAllGaiaByRow(testRow,extraCut=self.extraDis) # cut extradis to fit the off cloud stars
 
@@ -2772,7 +2799,10 @@ class GAIADIS:
 
 		distanceStd=disStd
 		print "The distance of {} is: {}+/-{} pc. ".format(sourceName,distance,disStd),
-		
+
+
+
+
 		totalStd=( 0.05*distance )**2 +disStd**2
 		
 		totalStd=totalStd**0.5
@@ -2914,7 +2944,10 @@ class GAIADIS:
 		axBack=pywcsgrid2.subplot(gs[0:4,3:5], header=WCS(backHead) )
 		
   
-		self.drawCloudFITS( fitsName, axBack,backData, backHead,lRange,bRange,noiseLevel,signalLevel , gaiaOnsource,gaiaOffsource, maskFITS=maskFITS) 
+		self.drawCloudFITS( fitsName, axBack,backData, backHead,lRange,bRange,noiseLevel,signalLevel , gaiaOnsource,gaiaOffsource, maskFITS=maskFITS,vlsr=vlsr)
+
+
+
 
 		AGAVText="Ag"
 		

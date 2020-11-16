@@ -2,11 +2,15 @@
 #this File contains my own defined functions, which is very customed
 
 # put this as the only version
-
+from __future__ import print_function
 #
 from scipy.odr import *
 import numpy as np
 from astropy.table import Table,vstack
+
+
+
+
 
 from astropy.io import fits
 
@@ -16,7 +20,7 @@ from astropy.wcs import WCS
 import os
 import math
 import os.path
-import pywcsgrid2
+#import pywcsgrid2
 from matplotlib import rc
 from  mpl_toolkits.axes_grid1.axes_rgb import imshow_rgb
 from mpl_toolkits.axes_grid1.inset_locator import zoomed_inset_axes, mark_inset,inset_axes
@@ -81,7 +85,7 @@ class myFITS:
 
 	def __init__(self,FITSname=None):
 		if FITSname:#with fits input
-			print "An object processing {} created!".format(FITSname)
+			print ("An object processing {} created!".format(FITSname) )
 			self.fitsDATA,self.fitsHeader=self.readFITS(FITSname)
 			self.fitsPath,self.fitsName=os.path.split(FITSname)
 			if self.fitsPath=="":
@@ -204,7 +208,7 @@ class myFITS:
 		"""
 		
 		if str.strip(fitsFile)=='':
-			print "Empty file, quitting...."
+			print ("Empty file, quitting...." )
 			return 
 
 		if outPUT is None:
@@ -221,7 +225,7 @@ class myFITS:
 			os.remove(writeName)
 			
 		if not overwrite and fileExist:
-			print "File exists, quitting..."
+			print ("File exists, quitting..." )
 			return 
 
 		#read file
@@ -314,7 +318,7 @@ class myFITS:
 		"""
 		#
 
-		print "Starting to regrid the velocity axis, this may take a little while..."
+		print ( "Starting to regrid the velocity axis, this may take a little while..." )
 
 		cube = SpectralCube.read(fitsName)
 
@@ -355,7 +359,7 @@ class myFITS:
 
 		interp_Cube.write(saveName,overwrite=True )
 
-		print "Smooting the veloicyt axis done!"
+		print ( "Smooting the veloicyt axis done!" )
 	def smoothSpaceFITS(self,data,dataHeader,rawBeam,resultBeam,outPutName): # arcmin
 		
 		"""
@@ -421,13 +425,13 @@ class myFITS:
 		
 		#smooth the data using this kernel
  
- 		if len(data.shape)==3:
- 		
-	 		z,y,x=data.shape
- 
-	 
+		if len(data.shape)==3:
+
+			z,y,x=data.shape
+
+
 			for i in range(z):
-				
+
 				data[i]=convolve(data[i], smoothKernel)
 				
 		if len(data.shape)==2:
@@ -526,7 +530,7 @@ class myFITS:
 
 
 		header=header.copy()
-		print "Reducing to 3D...."
+		print ("Reducing to 3D...." )
 		
 		header["NAXIS"]=3
 		
@@ -669,11 +673,11 @@ class myFITS:
 
 
  
- 		print "================"
-		print processPath,FITSname
+		print ( "================" )
+		print ( processPath,FITSname )
 
 
-		print "Doing moment {} in the velocity range of {} kms".format(mom,Vrange)
+		print (  "Doing moment {} in the velocity range of {} kms".format(mom,Vrange) )
 
 		ReadOutName="tempoutFITS"
  
@@ -699,7 +703,7 @@ class myFITS:
 
 		if not overWrite:
 			if os.path.isfile(outPath+outPutName):
-				print "No overwriting, skipping......."
+				print ( "No overwriting, skipping......." )
 				return self.readFITS(outPath+outPutName)
 
 		#delete this frisrt
@@ -816,7 +820,7 @@ class myFITS:
 		
 		"""
 		
-		print "Download {}, at (l, b)=({}, {}) ----------  sizeL: {} deg; sizeB: {} deg".format(survey,centerLB[0],centerLB[1],sizeLB[0],sizeLB[1])
+		print ("Download {}, at (l, b)=({}, {}) ----------  sizeL: {} deg; sizeB: {} deg".format(survey,centerLB[0],centerLB[1],sizeLB[0],sizeLB[1]) )
 		
 		
 		
@@ -838,12 +842,12 @@ class myFITS:
 			
 			
 		
-		print "Saving to  {}{}  ....".format(savePath,saveName)
+		print ("Saving to  {}{}  ....".format(savePath,saveName)  )
 		
 		
 		
 		if not overWrite and os.path.isfile(savePath+saveName):
-			print "File exist, returning...."
+			print ("File exist, returning...." )
 			return 
 		
 		#command="skvbatch_wget file=./{}/{} position='{}, {}' Survey='{}'  Projection='Car' Coordinates='Galactic' Pixels={}".format(savePath,tempName,centerl,centerb,survey,sizePix)
@@ -891,14 +895,14 @@ class myFITS:
 	  
 			
 			if  os.path.isfile(outputFile2):
-				print outputFile,"exits...doing nothing..."
+				print ( outputFile,"exits...doing nothing..."  )
 				return 
 		tempName="tempIRAS.fits" #in case some filenames contains space
 		command="skvbatch_wget file=./{}/{} position='{}, {}' Survey='{}'  Projection='Car' Coordinates='Galactic' Pixels={}".format(savePath,tempName,centerl,centerb,survey,sizePix)
 		
 		os.system(command)
 		copyFile="mv ./{}/{} ./{}/{} ".format(savePath,tempName,savePath,saveName)
-		print copyFile
+		print (copyFile )
 		os.system(copyFile )
 
 
@@ -966,7 +970,7 @@ class myFITS:
 
 		if not Pixels and not size:
 
-			print "No download size is assigned, quit"
+			print ("No download size is assigned, quit" )
 			return
 
 
@@ -977,7 +981,7 @@ class myFITS:
  
 			resolution=self.detectSurveyResolution(Survey,[centerL,centerB])
 			if Pixels and size:
-				print "Can't assign size and pixels simultaneously in Original model, quit"
+				print ("Can't assign size and pixels simultaneously in Original model, quit")
 				return
 
 			if size and not Pixels:
@@ -1022,14 +1026,14 @@ class myFITS:
 
 		mosaicFITS=[]
 
-		print tilesL,tilesB
+		print ( tilesL,tilesB )
 
 		for i in range(int(tilesL)+1):
 			for j in range(int(tilesB)+1):
 
 				centerTileL=minL+size*(i+1)
 				centerTileB=minB+size*(j+1)
-				print "Downloading (i,j)=({},{}) fits centered:{} {}".format(i+1,j+1,minL+size*(i+1),minB+size/1.*(j+1))
+				print ("Downloading (i,j)=({},{}) fits centered:{} {}".format(i+1,j+1,minL+size*(i+1),minB+size/1.*(j+1))  )
 				
 				#avoid repeat download
 				outputName=downLoadPath+"Mosaic{}{}.fits".format(i+1,j+1)
@@ -1078,6 +1082,50 @@ class myFITS:
 
 
 
+	@staticmethod
+	def getCloudNameByLB( l,b):
+
+		#if b>=0:
+
+			lStr= str(l)
+
+			bStr="{:+f}".format(b)
+
+
+			if '.' in lStr:
+
+				lStrPart1,lStrPart2=lStr.split('.')
+
+			else:
+				lStrPart1 =lStr
+				lStrPart2='0'
+
+
+			if '.' in bStr:
+
+				bStrPart1,bStrPart2=bStr.split('.')
+			else:
+				bStrPart1 =bStr
+				bStrPart2='0'
+
+
+			lStr=lStrPart1+'.'+lStrPart2[0:1]
+
+
+			bStr=bStrPart1+'.'+bStrPart2[0:1]
+
+
+			lStr=lStr.zfill(5)
+
+
+			#bStr="{:+.1f}".format(b)
+			bStrNumberPart=bStr[1:]
+			bStr=bStr[0:1]+  bStrNumberPart.zfill(4)
+
+			cName="G{}{}".format(lStr,bStr)
+
+			return cName
+
 
 	@staticmethod
 	def find_nearestIndex(  a, a0):
@@ -1086,9 +1134,13 @@ class myFITS:
 		idx = np.abs(a - a0).argmin()
 		return idx
 
+	@staticmethod
+	def getTBStructure(tb):
+		a=Table(tb[0] )
 
+		a.remove_row(0)
 
-
+		return a
 	@staticmethod
 	def getSurvey(Survey,LB,outputFITS=None, Pixels=None,size=None):
 		"""
@@ -1116,7 +1168,7 @@ class myFITS:
 			#no download paratmers are providided, download with  pixels=500
 			
 			command="skvbatch_wget file={} position='{},{}' Survey='{}'  Coordinates=Galactic  Projection=Car  Pixels={}".format(outputFITS,centerL,centerB,Survey,500)
-			print command
+			print (command )
 			os.system(command)
 			return
 
@@ -1140,7 +1192,7 @@ class myFITS:
 		#call("./skvbatch_wget file=example2.fits position='0,0' Survey='Digitized Sky Survey' Coordinats=Galactic  Projection=Car size=0.5")
 
 
- 	def reverseVelAxis( self,inFITS ,outFITS=None):
+	def reverseVelAxis( self,inFITS ,outFITS=None):
 		"""
 
 		:param inFITS:
@@ -1194,7 +1246,7 @@ class myFITS:
 		wmap = WCS(goodHeader, naxis=3)
 
 		if not Vrange and not Lrange and not Brange:
-			print "No crop range is provided."
+			print ("No crop range is provided." )
 			return
 
 		# Examine the maximum number for pixels
@@ -1283,11 +1335,11 @@ class myFITS:
 				#fits.writeto(outFITS, datacut, header=wmapcut.to_header())
 
 			else:
-				print "Warring----File ({}) exists and no overwriting!".format(outFITS)
+				print ("Warring----File ({}) exists and no overwriting!".format(outFITS) )
 		return outFITS
 
 	@staticmethod
-	def cropFITS(inFITS,outFITS=None,Vrange=None,Lrange=None,Brange=None,overWrite=False):
+	def cropFITS(inFITS,outFITS=None,Vrange=None,Lrange=None,Brange=None,overWrite=False,velUnit=None):
 		"""
 		parameters: inFITS,outFITS=None,Vrange=None,Lrange=None,Brange=None,overWrite=False
 		Thiss function is used to create my own function of croping FITS
@@ -1326,16 +1378,15 @@ class myFITS:
 
 		wmap=WCS(goodHeader,naxis=3)
 
-
+		wmap.wcs.bounds_check(False, False)
 
 		if not Vrange and not Lrange and not Brange:
-			print "No crop range is provided."
+			print ("No crop range is provided." )
 			return
 		
 		#Examine the maximum number for pixels
 		if len(data.shape)==4:
 			data=data[0] #down to 3D
-
 
 
 
@@ -1352,18 +1403,38 @@ class myFITS:
 
 
 
-		if not Vrange:
+
+		if   Vrange is  None:
 			#calculate the range for the 
 			Zrange=[firstPoint[2],lastPoint[2]]
-		else:
-			Zrange=np.array(Vrange)*1000
+		else: #usually it is not alwasy true that the
 
-		if not Lrange:
+
+			if velUnit is None:
+
+
+				if goodHeader["CDELT3"] <10: #km /s
+				#if "km" in goodHeader["CUNIT3"] or   "Km" in goodHeader["CUNIT3"] or  "KM" in goodHeader["CUNIT3"] :#take it as km/s
+					Zrange=np.array(Vrange)
+				else: #m/s
+					Zrange=np.array(Vrange)*1000
+
+
+
+
+			else: #
+				if "km" in  velUnit or   "Km" in  velUnit  or  "KM" in  velUnit  :#take it as km/s
+					Zrange=np.array(Vrange)
+				else: #m/s
+					Zrange=np.array(Vrange)*1000
+
+
+		if   Lrange is   None:
 			Xrange=[firstPoint[0],lastPoint[0]]
 		else:
 			Xrange=Lrange
 			
-		if not Brange:
+		if   Brange is None:
 			Yrange=[firstPoint[1],lastPoint[1]]
 		else:
 			Yrange=Brange
@@ -1372,13 +1443,22 @@ class myFITS:
 		if lastPoint[0]<firstPoint[0]:
 			Xrange=[max(Xrange),min(Xrange)]
 		#print lastPoint[0],firstPoint[0]
-	
+
+
 		#print Xrange,Yrange,Zrange
 		cutFIRST=wmap.wcs_world2pix(Xrange[0],Yrange[0],Zrange[0],0)
 		cutLAST =wmap.wcs_world2pix(Xrange[1],Yrange[1],Zrange[1],0)
 
+		########################################### Added by Qzyan 2020/10/23
+		#something wroing with the cutLAST for fits across 180 degress.
+		# looks like a difficult issed.
+		dl = abs( goodHeader["CDELT1"] )
+		maximumNx= 360/dl
 
+		if cutLAST[0]<0:
+			cutLAST[0] = cutLAST[0] + maximumNx
 
+		########################################### Added by Qzyan 2020/10/23
 
 
 		cutFIRST=map(round,cutFIRST)
@@ -1430,7 +1510,7 @@ class myFITS:
 				fits.writeto(outFITS,datacut,header=wmapcut.to_header())
 
 			else:
-				print "Warring----File ({}) exists and no overwriting!".format(outFITS)
+				print ("Warring----File ({}) exists and no overwriting!".format(outFITS) )
 		return outFITS
 	@staticmethod
 	def converto32bit(fitsName,saveFITS=None):
@@ -1450,6 +1530,35 @@ class myFITS:
 
 		fits.writeto(saveFITS,np.float32(data),header=head,overwrite=True)
 
+	@staticmethod
+	def convertoms(fitsName,saveFITS=None):
+		"""
+		concert the thrid axis to m/s
+		:param fitsName:
+		:param saveFITS:
+		:return:
+		"""
+		if saveFITS==None:
+
+			fitsName=os.path.split(fitsName)[1]
+
+			saveFITS=fitsName[0:-5]+"ms.fits"
+
+		data,head= myFITS.readFITS(fitsName)
+
+
+		if "km" in head["CUNIT3"] or  "Km" in head["CUNIT3"] or  "KM" in head["CUNIT3"] :
+			head["CUNIT3"]="m/s"
+			head["CRVAL3"] =  head["CRVAL3"]*1000
+			head["CDELT3"] =  head["CDELT3"]*1000
+
+
+
+			fits.writeto(saveFITS, data ,header=head,overwrite=True)
+
+		else:
+
+			return fitsName
 
 
 	@staticmethod
@@ -1555,18 +1664,23 @@ class myFITS:
 
 		fitsRead=fits.open(FITSName)
 
-		head=fitsRead[0].header
+
 		data=fitsRead[0].data
 
 		negative= data[data<0]
 
-		p=np.abs(negative)
 
-		variance=np.var(p,ddof=1)
+		return np.sqrt( np.mean( np.square(negative) ) )
 
-		ab=1-2./np.pi
+		#use the negative values at
 
-		return np.sqrt( variance/ab  )
+		#p=np.abs(negative)
+
+		#variance=np.var(p,ddof=1)
+
+		#ab=1-2./np.pi
+
+		#return np.sqrt( variance/ab  )
 
 	@staticmethod
 	def cropFITS2D(inFITS,outFITS=None, Lrange=None,Brange=None,overWrite=False):
@@ -1601,7 +1715,7 @@ class myFITS:
  
  
 		if   not Lrange and not Brange:
-			print "No crop range is provided."
+			print ("No crop range is provided." )
 			return
 		
 		#Examine the maximum number for pixels
@@ -1689,7 +1803,7 @@ class myFITS:
 				fits.writeto(outFITS,datacut,header=wmapcut.to_header()) 
 
 			else:
-				print "Warring----File ({}) exists and no overwriting!".format(outFITS)
+				print ("Warring----File ({}) exists and no overwriting!".format(outFITS) )
 
 		return outFITS
  
@@ -1718,7 +1832,84 @@ class myFITS:
 		#self.l=l_input
 		#self.b=b_input
 
-	
+
+
+	@staticmethod
+	def TB1InTB2(TB1File,TB2File,testCol="_idx"):
+
+		"""
+		TB2 is the larger one
+		:param TB1File:
+		:param TB2File:
+		:return:
+		"""
+
+		TB1=Table.read(TB1File)
+		TB2= Table.read(TB2File)
+
+
+		index1=TB1[testCol ]
+		index2=TB2[testCol ]
+
+		selectCriteria = np.in1d(index2, index1 ) #
+
+		newTB1= TB2[ selectCriteria ]
+		newTB1.write("reduce_"+TB2File , overwrite=True)
+
+
+	@staticmethod
+	def drawBV(fitsName, saveFITS=None, RMS=0.5, cutLevel=3.):
+
+		if saveFITS == None:
+			saveFITS = fitsName[:-5] + "_BV.fits"
+
+		CO12HDU = fits.open(fitsName)[0]
+		data, head = CO12HDU.data, CO12HDU.header
+
+		wcs = WCS(head)
+
+		Nz, Ny, Nx = data.shape
+		#beginP = [0, (Ny - 1.) / 2.]
+
+		#endP = [(Nx), (Ny - 1.) / 2.]
+		beginP = [(Nx - 1.) / 2. , 0]
+
+		endP = [ (Nx - 1.) / 2.  ,  Ny  ]
+		widthPix = 2
+		from pvextractor import extract_pv_slice, Path
+
+		endpoints = [beginP, endP]
+		xy = Path(endpoints, width=widthPix)
+
+		pv = extract_pv_slice(CO12HDU, xy)
+
+		#os.system("rm " + saveFITS)
+
+		pv.writeto(saveFITS,overwrite=True)
+
+		if 1:  # modify the first
+
+			pvData, pvHead = myFITS.readFITS(saveFITS)
+
+			pvHead["CDELT1"] = head["CDELT2"]
+			pvHead["CRPIX1"] = head["CRPIX2"]
+			pvHead["NAXIS1"] = head["NAXIS2"]
+			pvHead["CRVAL1"] = head["CRVAL2"]
+
+		# data[data<cutLevel*RMS ]=0 #by default, we remove those emissions less than 3 sgima
+
+		# resolution
+		res = 30. / 3600.
+		PVData2D = np.sum(data, axis=2, dtype=float) * res
+
+		if PVData2D.shape == pvData.shape:
+			# .....
+			# os.system("rm " +saveFITS )
+
+			fits.writeto(saveFITS, PVData2D, header=pvHead, overwrite=True)
+		else:
+
+			print ("The shape of pvdata with manual integration is unequal!")
 
 	@staticmethod
 	def drawLV(fitsName,saveFITS=None, RMS=0.5, cutLevel=3.):
@@ -1749,7 +1940,7 @@ class myFITS:
 		
 		
 		pv.writeto(saveFITS)
-		
+
 		if 1: #modify the first 
 	
 			pvData,pvHead=myFITS.readFITS( saveFITS )
@@ -1761,7 +1952,7 @@ class myFITS:
 			pvHead["CRVAL1"]=head["CRVAL1"]
 			
  
-		data[data<cutLevel*RMS ]=0 #by default, we remove those emissions less than 3 sgima
+		#data[data<cutLevel*RMS ]=0 #by default, we remove those emissions less than 3 sgima
 
 
 		# resolution
@@ -1773,13 +1964,12 @@ class myFITS:
 		
 		if PVData2D.shape==pvData.shape:
 			#.....
-			os.system("rm " +saveFITS )
-		
-				
-			fits.writeto(saveFITS,PVData2D,header=pvHead)
+			#os.system("rm " +saveFITS )
+
+			fits.writeto(saveFITS,PVData2D,header=pvHead,overwrite=True)
 		else:
  
-			print "The shape of pvdata with manual integration is unequal!"
+			print ("The shape of pvdata with manual integration is unequal!" )
 			
 			
 	def selectTBByColRange(self,TB, colName, minV=None,maxV=None):
@@ -1823,7 +2013,7 @@ class myFITS:
 
 		newTBColList=[ cloudTB["peakL"], cloudTB["peakB"], cloudTB["peakV"],cloudTB["allChannel"], cloudTB["peakChannel"], cloudTB["conseCol"] ]
 
-		print Table( newTBColList )
+		print (Table( newTBColList ) )
 
 	def selectTBByCols(self,TB,colNameList):
 		"""
@@ -1869,14 +2059,17 @@ class myFITS:
 		pass
 
 		data,head=self.readFITS(fitsCube)
-
-		#data=np.nan_to_num(data)
+		if len(data.shape)==4 and data.shape[0]==1:
+			data=data[0]
 
 		#remove positive values
 		data[data>=0]= np.nan
 
-		stdFITS=np.nanstd(data, axis=0,ddof=1 )
-		stdFITS=stdFITS/np.sqrt( 1-2./np.pi )
+		##
+		dataWithPositive=np.vstack( [data,-data] )
+
+		stdFITS=np.nanstd(dataWithPositive, axis=0,ddof=1 )
+		#stdFITS=stdFITS/np.sqrt( 1-2./np.pi )
 
 		#stdFITSByMean=-np.nanmean(data, axis=0 )
 		#stdFITSByMean=stdFITSByMean*np.sqrt(np.pi)/np.sqrt(2)
@@ -1947,6 +2140,72 @@ class myFITS:
 			part2 = part1[np.logical_or(part1["x_cen"] > 55, part1["y_cen"] < 1063)]  # 1003, 3.25
 
 			return part2
+
+	def mergeByVaxis(self, fits1, fits2, outPut="mergedCube.fits"):
+		"""
+        #takes two fits files, and merge them together, to see if the SASMA can process this large data
+        we merge the local and the perseus arm file,
+
+        :param fits1:
+        :param fits2:
+        :param outPut:
+        :return:
+        """
+
+		# find the fits, that has the lowerest velocity, and append is to the
+
+		data1, head1 = self.readFITS(fits1)
+
+		data2, head2 = self.readFITS(fits2)
+
+		spec1, vaxis1 = self.getSpectraByIndex(data1, head1, 0, 0)
+		spec2, vaxis2 = self.getSpectraByIndex(data2, head2, 0, 0)
+
+		if vaxis1[0] < vaxis2[0]:
+
+			lowData, lowHead = data1, head1
+			highData, highHead = data2, head2
+
+			lowSpec, lowVaxis = spec1, vaxis1
+			highSpec, highVaxis = spec2, vaxis2
+
+		else:
+
+			lowData, lowHead = data2, head2
+			highData, highHead = data1, head1
+
+			lowSpec, lowVaxis = spec2, vaxis2
+			highSpec, highVaxis = spec1, vaxis1
+
+		# process low and high
+
+		maxVlow = lowVaxis[-1]
+
+		minVHigh = highVaxis[0]
+
+		# find and middle position
+
+		middleV = (maxVlow + minVHigh) / 2.
+
+		mergeIndexLow = self.find_nearestIndex(lowVaxis, middleV)
+
+		mergeV = lowVaxis[mergeIndexLow]
+
+		part1data = lowData[0:mergeIndexLow]
+
+		mergeIndexHigh = self.find_nearestIndex(highVaxis, mergeV)
+
+		part2data = highData[mergeIndexHigh:]
+
+		if highVaxis[mergeIndexHigh] != mergeV:
+			print ("Two fits has different cooridnate at velocity, cannot do direct merge, exist... " )
+			return
+
+		print ("Merging at {:.3f} km/s".format(mergeV) )
+
+		mergeData = np.vstack([part1data, part2data])
+
+		fits.writeto( outPut, mergeData, header=lowHead, overwrite=True)
 
 	def ZZZ(self):
 		#mark the end of the file

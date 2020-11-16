@@ -198,6 +198,10 @@ class  MWISPDBSCAN(object):
 
         COdata, COHead= doFITS.readFITS( self.rawCOFITS )
 
+
+        if len(COdata.shape)==4:
+            COdata=COdata[0]
+
         Nz, Ny, Nx = COdata.shape
 
 
@@ -249,20 +253,36 @@ class  MWISPDBSCAN(object):
         labeled_array = labeled_core
 
 
-        saveTag = self.getDBSCANTag( )
 
         print num_features, "features found!"
 
-
-
-        baseName  =  os.path.basename( self.rawCOFITS )
-
-        saveLabelFITSName= os.path.join(self.processPath,baseName[0:-5]+saveTag+".fits")
-
+        saveLabelFITSName=self.getLabelFITSName()
         fits.writeto(  saveLabelFITSName , labeled_array, header=COHead, overwrite=True)
         self.labelFITSName=saveLabelFITSName
 
         return saveLabelFITSName
+
+
+
+    def getLabelFITSName(self, doClean=False):
+        """
+        used to get the DBSCAN label fits name, when you do not want to rerun the DBSCAN process
+        :return:
+        """
+        baseName  =  os.path.basename( self.rawCOFITS )
+        saveTag = self.getDBSCANTag( )
+
+
+        if doClean:
+
+            saveLabelFITSName= os.path.join(self.processPath,baseName[0:-5]+saveTag+"_Clean.fits")
+
+        else:
+            saveLabelFITSName= os.path.join(self.processPath,baseName[0:-5]+saveTag+".fits")
+
+
+        return saveLabelFITSName
+
 
     def getIndices(self, Z0, Y0, X0, values1D, choseID):
 
@@ -274,15 +294,64 @@ class  MWISPDBSCAN(object):
 
         return tuple([cZ0, cY0, cX0])
 
-    def getSaveCatName(self,doClean=True):
+    def getSaveCatName(self,doClean=False):
+
+
+        processLabelFITSName=self.labelFITSName
+
+        if processLabelFITSName is None:
+            processLabelFITSName=self.getLabelFITSName(doClean=False)
 
         if not doClean: # _Clean.fit
-            return self.labelFITSName[0:-1]
+            return processLabelFITSName[0:-1]
 
         else:
-            return self.labelFITSName[0:-5]+"_Clean.fit"
+            return processLabelFITSName[0:-5]+"_Clean.fit"
+
+    def rmsmap(self, outPUT=None, overwrite=True):
+        """
+        3d rms
+        :param outPUT:
+        :param overwrite:
+        :return:
+        """
+
+        if self.rawCOFITS is None:
+            print "rawCOFITS need to be provided, stoping..."
+            return
+
+        COdata, COHead = doFITS.readFITS(self.rawCOFITS)
+
+        if len(COdata.shape) == 4:
+            COdata = COdata[0]
+
+        if outPUT is None:
+            writeName = "rmsmap.fits"
+
+        else:
+            writeName = outPUT
+
+        fileExist = os.path.isfile(writeName)
+
+        if overwrite and fileExist:
+            os.remove(writeName)
+
+        Nz, Ny, Nx = COdata.shape
 
 
+        rmsData = np.zeros_like(COdata, dtype=np.float32)
+
+        for i in range(Nz):
+            channelI = COdata[i]
+            negativeValues = channelI[channelI < 0]
+
+            sigma = np.std(negativeValues) / np.sqrt(1 - 2. / np.pi)
+
+            print sigma
+            rmsData[i, :, :] = sigma
+
+        fits.writeto(writeName, rmsData, header=COHead)
+        return fits.open(writeName)[0]
 
     def getCatFromLabelArray(self,doClean=True ):
         """
@@ -324,6 +393,11 @@ class  MWISPDBSCAN(object):
 
         dataCO, headCO = myFITS.readFITS(self.rawCOFITS)
 
+
+        if len(dataCO.shape)==4:
+            dataCO=dataCO[0]
+
+
         if self.averageRMS is not None and self.rawCOFITS is not None:
 
             self.getUniformRMSData(self.averageRMS,Ny,Nx)
@@ -347,7 +421,9 @@ class  MWISPDBSCAN(object):
 
 
 
-        wcsCloud = WCS(headCluster)
+        wcsCloud = WCS(headCluster,naxis=3)
+
+        wcsCloud.wcs.bounds_check(False, False) #for molecular clouds toward the anti Galacic center
 
         clusterIndex1D = np.where(dataCluster > minV)
         clusterValue1D = dataCluster[clusterIndex1D]
@@ -467,8 +543,15 @@ class  MWISPDBSCAN(object):
             peak=coValues[peakIndex]
             # #criteria 2
 
+            peakSimga=0
 
-            if peak < self.minPeakSigma * self.rmsData[peakB,peakL] and doClean:  #  accurate to lines
+            if len(self.rmsData.shape)==2:
+                peakSimga =  self.minPeakSigma * self.rmsData[peakB,peakL]
+            if len(self.rmsData.shape)==3:
+                peakSimga =  self.minPeakSigma * self.rmsData[peakV,peakB,peakL]
+
+
+            if peak <  peakSimga and doClean:  #  accurate to lines
                 continue #do not consider the minimum peaks
 
 
@@ -640,8 +723,7 @@ class  MWISPDBSCAN(object):
 
 
 
-
-    def produceCloudIntFITS(self,rawCOFITS,LabelCOFITS,tbFile, outputPath="./", minimumArea=54):
+    def produceCloudIntFITS(self,rawCOFITS,LabelCOFITS,tbFile, outputPath="./cloudIntPath",  useTB=False, pureInt=False, foreground=False,m1FITS=False ):
         """
         the minimum Area of 0.015 square deg = 54 square arcmin, is the largest cloud we coud perform distance examination
 
@@ -651,10 +733,11 @@ class  MWISPDBSCAN(object):
         :param minimumArea:
         :return:
         """
-
-        TB=Table.read(tbFile)
-
-        TB=TB[TB["area_exact"]>=minimumArea] #only select large angular size molecular clouds
+        if not useTB:
+            TB=Table.read(tbFile)
+        else:
+            TB=tbFile
+        #TB=TB[TB["area_exact"]>=minimumArea] #only select large angular size molecular clouds
 
         TB.sort("area_exact")
         TB.reverse()
@@ -664,7 +747,7 @@ class  MWISPDBSCAN(object):
 
         #Nz,Ny,Nx=dataCO.shape
 
-
+        wcsCO=WCS(headCO,naxis=2)
 
 
         dataCluster,headCluster=myFITS.readFITS( LabelCOFITS  )
@@ -688,6 +771,9 @@ class  MWISPDBSCAN(object):
         pbar.start()
         indexRun = 0
 
+
+        zeroCube = np.zeros_like(dataCluster, dtype=np.float32 )
+
         for eachDBRow in TB:
             indexRun = indexRun + 1
             pbar.update(indexRun)
@@ -705,19 +791,104 @@ class  MWISPDBSCAN(object):
 
             cropCOCube=dataCO[startV0:endVindex+1]
 
-            sumCO=np.sum( cropCOCube, axis=0,dtype=float )*velsolution
 
-            saveIntFITSname= os.path.join( outputPath , "Cloud{}_int.fits".format( cloudID  ) )
+            if m1FITS:
+                saveM1FITSname = os.path.join(outputPath, "Cloud{}_M1.fits".format(cloudID))
+
+                startV0=min(iz)
+                endV0= max(iz)
+
+                zeroCube[cloudIndex] = dataCO[cloudIndex]
+                cropCOCubePure=zeroCube[startV0:endV0+1]
+
+                vList=  vaxis0[startV0:endV0+1]
+
+                zeroM1= cropCOCubePure[0]*0
+
+                for  subIndex in range(len(vList)):
+                    zeroM1=zeroM1+cropCOCubePure[subIndex]*vList[subIndex]
+
+
+                sumCOPure = np.sum(cropCOCubePure, axis=0, dtype=float)  #* velsolution
+                zeroM1= zeroM1/ sumCOPure
+
+                #find a way to calculate the moment 2, fast ... #since only the relative number is concered, we only care the relative value of m1, use index instead
+
+                axisX = np.nansum(zeroM1, axis=0)
+                axisY = np.nansum(zeroM1, axis=1)
+
+                nonZerosX = np.nonzero(axisX)[0]
+
+                firstX = nonZerosX[0]
+                secondX = nonZerosX[-1]
+
+                nonZerosY = np.nonzero(axisY)[0]
+
+                firstY = nonZerosY[0]
+                secondY = nonZerosY[-1]
+
+                wmapcut = wcsCO[ firstY : secondY +1 ,  firstX : secondX +1 ]
+                zeroM1 = zeroM1[ firstY : secondY +1 ,  firstX : secondX +1 ]
+                fits.writeto(saveM1FITSname, zeroM1, header=wmapcut.to_header(), overwrite=True)
+                zeroCube[cloudIndex] = 0
+                continue
+                #dot no save all file, too large, unnecessary
+
+                #need to crop imedietably
+
+
+
+
+
+
+
+
             saveMaskFITSname= os.path.join( outputPath , "Cloud{}_mask.fits".format( cloudID  )  )
+            savePureIntFITSname= os.path.join( outputPath , "Cloud{}_PureInt.fits".format( cloudID  ) )
+            #produce pureint
 
 
 
+            #produce moment1 fits
+
+
+            ###int fits
+            sumCO=np.sum( cropCOCube, axis=0,dtype=float )*velsolution
+            saveIntFITSname= os.path.join( outputPath , "Cloud{}_int.fits".format( cloudID  ) )
+            if not m1FITS:
+                fits.writeto(saveIntFITSname, sumCO, header=headCluster, overwrite=True)
+
+            ##mask fits
             projection0[projectIndices] =1
+            if not m1FITS:
+                fits.writeto(saveMaskFITSname, projection0, header=headCluster, overwrite=True)
 
-            fits.writeto(saveMaskFITSname, projection0, header=headCluster, overwrite=True)
-            fits.writeto(saveIntFITSname, sumCO, header=headCluster, overwrite=True)
+            ##foreground fits
+
+            if foreground: #the way of generating foreground fits is different, the following code is used to produce foreground fits for Q2
+                foreCOCube = dataCO[endVindex + 1:]
+
+                sumForeground =   np.sum( foreCOCube , axis=0,dtype=float )*velsolution
+
+                saveForeGroundFITSname= os.path.join( outputPath , "Cloud{}_fore.fits".format( cloudID  ) )
+                fits.writeto(saveForeGroundFITSname, sumForeground, header=headCluster, overwrite=True)
+
+
+
+            if pureInt: #usually do no use this
+                startV0=min(iz)
+                endV0= max(iz)
+
+                zeroCube[cloudIndex] = dataCO[cloudIndex]
+                cropCOCubePure=zeroCube[startV0:endV0+1]
+
+
+                sumCOPure = np.sum(cropCOCubePure, axis=0, dtype=float) * velsolution
+                fits.writeto(savePureIntFITSname, sumCOPure, header=headCluster, overwrite=True)
+
 
             projection0[projectIndices] =0
+            zeroCube[cloudIndex] =  0
 
             #zeroCluster[cloudIndex] = cloudID  # remove this cluster and do not record this cluster
 
@@ -830,8 +1001,186 @@ class  MWISPDBSCAN(object):
 
         fits.writeto(outFITS,dataCO,header=headCO,overwrite=True)
 
+    def produceIndividualClouds(self, rawCOFITS, labelsFITS, cloudTBFile, savePath="./cloudSubCubes/" ,noiseMask=0 , inpuTB = None ):
+        """
+
+        #output all data cubes for each cloud
+
+        :return:
+        """
+
+        #################
+
+        # savePath=""
+
+        if os.path.isdir(savePath):
+            pass
+        else:
+            os.makedirs(savePath)
+
+        if inpuTB is None:
+            cloudTB = Table.read(cloudTBFile)
+
+        else:
+            cloudTB= inpuTB
 
 
 
+        # cloudTB=self.removeWrongEdges(cloudTB)
+        print len(cloudTB), " molecular clouds in total."
+
+        dataCluster, headCluster = myFITS.readFITS(labelsFITS)
+        dataCO, headCO = myFITS.readFITS( rawCOFITS )
+        # print cloudTB
+
+        minV = np.nanmin(dataCluster[0])
+        wcsCloud = WCS(headCluster,naxis=3)
+        clusterIndex1D = np.where(dataCluster > minV)
+        clusterValue1D = dataCluster[clusterIndex1D]
+        Z0, Y0, X0 = clusterIndex1D
+
+        fitsZero = np.zeros_like(dataCluster,dtype=np.float32)
+        fitsZero=fitsZero+noiseMask
+         # print cloudTB.colnames
+        for eachC in cloudTB:
+            cloudID = eachC["_idx"]
+            saveName = "cloud{}cube.fits".format(cloudID)
+
+            cloudIndex = self.getIndices(Z0, Y0, X0, clusterValue1D, cloudID)
+            fitsZero[cloudIndex] = dataCO[cloudIndex]
+
+            cloudZ0, cloudY0, cloudX0 = cloudIndex
+
+            minZ = np.min(cloudZ0)
+            maxZ = np.max(cloudZ0)
+
+            minY = np.min(cloudY0)
+            maxY = np.max(cloudY0)
+
+            minX = np.min(cloudX0)
+            maxX = np.max(cloudX0)
+
+            cropWCS = wcsCloud[minZ:maxZ + 1, minY:maxY + 1, minX:maxX + 1]
+
+            cropData = fitsZero[minZ:maxZ + 1, minY:maxY + 1, minX:maxX + 1]
+
+            fits.writeto(savePath + saveName, cropData, header=cropWCS.to_header(), overwrite=True)
+
+            fitsZero[:] =  noiseMask
+        print "Cloud fits writing done!"
+
+    def getCloudIDByRow(self, eachC):
+
+
+        if "_idx" in eachC.colnames:
+            return eachC["_idx"]
+        else:
+            cloudName = eachC["sourceName"]
+            id = cloudName.split("Cloud")[-1]
+            return int(id)
+
+    def getEquivalentLinewidth(self,labelFITSName, inputTBFile ,saveSpectral=False):
+        """
+        add a colnames of linewidth to the inputTB
+        :param inputTB:
+        :return:
+        """
+
+        #first read label and CO data
+        dataCluster,headCluster=myFITS.readFITS( labelFITSName)
+        dataCO,headCO= myFITS.readFITS( self.rawCOFITS   )
+
+
+        filterTB= Table.read(inputTBFile)  # remove unrelated sources  #self.selectTB(rawTB)
+
+        cubeCO = SpectralCube.read( labelFITSName )
+        vAxis = cubeCO.spectral_axis
+
+
+        vAxis = vAxis.value / 1000.  # convert to rms
+
+        noiseV = np.nanmin(dataCluster[0])
+        index1D = np.where(dataCluster > noiseV)
+        values1D = dataCluster[index1D]
+
+        Z0, Y0, X0 = index1D
+
+        dataZero = np.zeros_like(dataCluster)
+
+        widgets = ['Geting line equivalent width: ', Percentage(), ' ', Bar(marker='0', left='[', right=']'), ' ', ETA(), ' ',
+                   FileTransferSpeed()]  # see docs for other options
+        pbar = ProgressBar(widgets=widgets, maxval=len(filterTB))
+        pbar.start()
+
+        try:
+            filterTB["lineWidth"] = filterTB["v_rms"]
+        except:
+            filterTB["lineWidth"] = filterTB["vlsr"]
+
+
+
+        i = 0
+        for eachR in filterTB:
+
+            testID =  self.getCloudIDByRow( eachR )
+
+
+            testIndices = self.getIndices(Z0, Y0, X0, values1D, testID)
+            singleZ0, singleY0, singleX0 = testIndices
+
+            dataZero[testIndices] = dataCO[testIndices]
+
+            # cropThe cloudRange
+            minY = np.min(singleY0)
+            maxY = np.max(singleY0)
+            ###########
+            minX = np.min(singleX0)
+            maxX = np.max(singleX0)
+
+            ###########
+            minZ = np.min(singleZ0)
+            maxZ = np.max(singleZ0)
+
+            #########
+
+            cloudCropSpectra = dataZero[:, minY:maxY + 1, minX:maxX + 1]
+
+            cloudCropCube = dataZero[minZ:maxZ + 1, minY:maxY + 1, minX:maxX + 1]
+
+            averageSpectraCrop = np.nansum(cloudCropSpectra, axis=(1, 2))
+
+            intCloud = np.nansum(cloudCropCube, axis=0)
+
+            # count the number spectra
+
+            totalSpectral = len(intCloud[intCloud > 0])
+
+            meanSpectral = averageSpectraCrop / 1. / totalSpectral
+
+            if saveSpectral:
+                savefileName = saveSpectralPath + "{}_{}Spectral".format(regionName, testID)
+
+                np.save(savefileName, [vAxis, meanSpectral])
+
+
+            spectraPeak = np.max(meanSpectral)
+
+            area = (vAxis[1] - vAxis[0]) * np.sum(meanSpectral)
+
+            eqLineWidth = area / spectraPeak
+            dataZero[testIndices] = 0
+
+            eachR["lineWidth"] = eqLineWidth
+
+            #lineWdith.append(eqLineWidth)
+
+            i = i + 1
+
+            pbar.update(i)
+
+        pbar.finish()
+
+        saveTBAs=  inputTBFile[0:-5]+"_LW.fit"
+        filterTB.write(saveTBAs, overwrite=True)
     def ZZZ(self):
         pass
