@@ -48,7 +48,7 @@ class GAIAAVFlag:
 	dist50="dist50"
 	dist84="dist84"
 
- 
+
 
 	sh_photoflag ="sh_photoflag"
 	sh_parallaxflag  ="sh_parallaxflag"

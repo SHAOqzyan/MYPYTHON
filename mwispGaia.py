@@ -47,12 +47,17 @@ from dendroTB import dendroCat
 
 import glob
 
-#from gaiaTB import  GAIATB
-from gaiaTBCor import  GAIATB
+#from gaiaTBCor import  GAIATB
+#from gaiaTBCor import  GAIATB
+from gaiaTBCorAGEDR3 import GAIATBAGEDR3 as GAIATB
+#import gaiaTBCorAGEDR3.GAIATBAGEDR3 as GAIATB
+
 from  myGAIA import GAIADIS
 
 from spectral_cube import SpectralCube
+
 from gaiaAVFlagTB import GAIAAVFlag
+#from gaiaAVFlagTBEDR3 import GAIAAVFlag #Gaia EDR2
 
 
 
@@ -214,6 +219,27 @@ class dbscanDis: #a aclass dealing with distances to DBSCAN clouds
             return None
 
         return  searchIntFITSFore[0]
+
+    def getAllCandidateID(self,candidatePath  ):
+        """
+        get the ID list for the candidate
+        :return:
+        """
+        #candidatePath = "./goodCandidate/"
+
+        pngFiles = glob.glob(candidatePath + "Cloud*Test.png")
+
+        idList = []
+
+        for eachFile in pngFiles:
+            idStr = eachFile.split("Test")[0]
+            idStr = idStr.split("Cloud")[1]
+
+            idList.append(int(idStr))
+
+        print  len(idList)
+
+        return idList
 
 
     def fastTestByID( self, ID, NL=1., SL=4., lowerDisCut=1., cutDis=3000., lExpand=0.15, calibrateAngle=1., bExpand=0.5,
@@ -544,7 +570,7 @@ class dbscanDis: #a aclass dealing with distances to DBSCAN clouds
                    testAllBins=False, useMask=True, upCO=None, useBin=False, useAllBins=True, offBinSize=3, onBinSize=1,
                    extendRatio=0.5, paraErrorCut=0.2, useAV=True, pureInt=False, extraDis=300., useBaseline=True,
                    pureTest=False, useForegroundFITS=False, foreOn=True, foreOff=True, lRange=None, bRange=None,
-                   extendRegion=False, extendSize=1., offQuadrant=None, useHighAv=False,saveTag=""):
+                   extendRegion=False, extendSize=1., offQuadrant=None, useHighAv=False,saveTag="" ,inputName= None,legendCol=1):
         """
         # this function take a cloudName, search mask and in file, extract on and off cloud stars, then calculate distances
 
@@ -704,6 +730,9 @@ class dbscanDis: #a aclass dealing with distances to DBSCAN clouds
         b = float(cloudRow["y_cen"])
         v = float(cloudRow["v_cen"]) # / 1000.
         figNameMark = self.getCloudNameByLB(l, b)
+
+        if inputName is not None:
+            figNameMark= inputName
 
         # r= float(  cloudRow["major_sigma"] )  #/3600. )
 
@@ -919,11 +948,11 @@ class dbscanDis: #a aclass dealing with distances to DBSCAN clouds
                                                                    baseLine, searchlRange, searchbRange, saveFig, \
                                                                    noiseLevel=noiseLevel, signalLevel=signalLevel,
                                                                    draw=True, figNameMark=figNameMark, inputRow=newDisRow,
-                                                                   correctBaseline=not useAllBins ,vlsr=v )
+                                                                   correctBaseline=not useAllBins ,vlsr=v,  legendCol=legendCol  )
 
             self.doDis.updateRow(newDisRow)
-            ####
-            return
+            #### reurn dis and error
+            return disResult
 
         else:
 

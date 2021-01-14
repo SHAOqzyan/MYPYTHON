@@ -1222,6 +1222,18 @@ class myFITS:
 
 
 		return saveFITS
+	@staticmethod
+	def checkPath(pathInput):
+		"""
+		#check if the path exist, if not created it
+		:param pathInput:
+		:return:
+		"""
+
+		if not os.path.isdir(pathInput):
+			os.system("mkdir " + pathInput)
+
+
 
 
 	@staticmethod
@@ -1698,6 +1710,9 @@ class myFITS:
 		# the unit of LBV is degree,degree, kms
 		"""
 
+
+
+
 		#read FITS file
 			
 		hdu=fits.open(inFITS)[0]		
@@ -1756,7 +1771,7 @@ class myFITS:
 		cutFIRST=wmap.wcs_world2pix(Xrange[0],Yrange[0], 0)
 		cutLAST =wmap.wcs_world2pix(Xrange[1],Yrange[1], 0)
 
- 
+
 		cutFIRST=map(round,cutFIRST)
 		cutLAST=map(round,cutLAST)
 
@@ -2206,7 +2221,7 @@ class myFITS:
 		mergeData = np.vstack([part1data, part2data])
 
 		fits.writeto( outPut, mergeData, header=lowHead, overwrite=True)
-
+		return outPut
 	def ZZZ(self):
 		#mark the end of the file
 		pass

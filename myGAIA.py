@@ -47,8 +47,8 @@ import readline
 from gaiaAVFlagTB import GAIAAVFlag
 
 
-from gaiaTB import GAIATB
-#from gaiaTBCor import GAIATB
+#from gaiaTB import GAIATB
+from gaiaTBCor import GAIATB
 
 doAG= GAIATB()
 
@@ -1849,7 +1849,7 @@ class GAIADIS:
 		#ax1.set_xlabel("minPts", fontsize=overAllFontSize)
 		#axDisLabelX.set_xlabel("D (pc)", fontsize=11)
 
-	def drawRawGaia(self,axRaw,gaiaOnsource,gaiaOffsource,gaiaForeCut=None,row=None,figNameMark=None,markLoc=4,baseline=None,drawOff=True ):
+	def drawRawGaia(self,axRaw,gaiaOnsource,gaiaOffsource,gaiaForeCut=None,row=None,figNameMark=None,markLoc=4,baseline=None,drawOff=True ,legendCol=1):
 		#draw smooth reulst of on and off ccloud stars,
 		
 		#if distance results are provided, draw them
@@ -1985,7 +1985,7 @@ class GAIADIS:
 
 		
 		if markLoc==4:
-			axRaw.legend(loc=2,fontsize=13)
+			axRaw.legend(loc=2,fontsize=13, ncol=legendCol)
 			#print "??????22222222222222?????????"
 
 			
@@ -2011,7 +2011,7 @@ class GAIADIS:
 		"""
 		
 		if self.useAV:
-			maxY=  np.max(dataAGOnBase)*0.8
+			maxY=  np.max(dataAGOnBase)*0.9
 		
 		else:
 			maxY=  np.max(dataAGOnBase)*0.9
@@ -2030,15 +2030,16 @@ class GAIADIS:
 			upperDis= row[ disTB.disHPDUp ] 
 			
 			distance,lowerDis,upperDis=map(int, [distance,lowerDis,upperDis] )
-			
+
+
 			
 			agmu1= row[ disTB.AG1 ] 
 			agmu2= row[ disTB.AG2 ] 
 		#ax.scatter(sortNOCOPara,sortNOCOExtention,lw=0.3,facecolors='b',s=5, edgecolors='b',label="Off-cloud stars" )
-			ax.fill_betweenx(y=[minY, maxY*0.9], x1=distance-lowerDis, x2=upperDis+distance, color='moccasin',lw=0.1 );
+			ax.fill_betweenx(y=[minY, maxY*0.95], x1=distance-lowerDis, x2=upperDis+distance, color='moccasin',lw=0.1 );
 			ax.plot([distance,distance],[minY,maxY*0.9],lw=1,color="black")
 		
-			ax.text(distance-dataDisOnBase.max()/100.*5,maxY*0.92, r'${}_{{-{}}}^{{+{}}}$ pc'.format(distance,lowerDis,upperDis),fontsize=13)
+			ax.text(distance-dataDisOnBase.max()/100.*5,maxY*0.96, r'${}_{{-{}}}^{{+{}}}$ pc'.format(distance,lowerDis,upperDis),fontsize=13)
 		
 		ax.scatter(dataDisOnBase,dataAGOnBase, edgecolors='darkgray', facecolors='darkgray',s=5,label="Baseline-subtracted raw on-cloud stars ") # raw data
 
@@ -2236,13 +2237,22 @@ class GAIADIS:
 
 
 			import matplotlib.patheffects as path_effects
-			text = axBack.text( x0+15 , y1-18, vlsrStr , color='white', alpha=0.8, fontsize=10, 	horizontalalignment='left', verticalalignment='center',  bbox={'facecolor': 'gray', "edgecolor":'gray', 'alpha': 0.5, 'pad': 2} )
+
+			#at = AnchoredText(vlsrStr, loc=2 , frameon=False, prop={"color": "white","facecolor":'gray',"alpha":0.3,} ,pad = 0.3)
+			#at = AnchoredText(vlsrStr, loc=2 , frameon=False, prop={"color": "white",   "alpha":0.8,} ,pad = 0.3 ,bbox={'facecolor': 'gray', "edgecolor":'gray', 'alpha': 0.5, 'pad': 2} )
+
+			# at.patch.set_boxstyle("round,pad=0.,rounding_size=0.2")
+			#axBack.add_artist(at)
+
+
+
+			text = axBack.text( x0+0.1*(x1-x0) , y1-0.1*(y1-y0), vlsrStr , color='white', alpha=0.8, fontsize=10, 	horizontalalignment='left', verticalalignment='center',  bbox={'facecolor': 'gray', "edgecolor":'gray', 'alpha': 0.5, 'pad': 2} )
 			text.set_path_effects([path_effects.Stroke(linewidth=0.8, foreground="black"), path_effects.Normal()])
 
 
 
 	#self.setAxColor(axBack)
-	def calDisAndrawWithOnAndOffCloudStars(self,sourceName,fitsName,maskFITS, gaiaOnsource,gaiaOffsource,baseLine,lRange,bRange,saveFigureName,noiseLevel=1.,signalLevel=5.,smScale=50,draw=True,lowerDisCut=1.,upperDisCut=2000,figNameMark=None,gaiaForeCut=None,inputRow=None, vlsr=None, correctBaseline=True):
+	def calDisAndrawWithOnAndOffCloudStars(self,sourceName,fitsName,maskFITS, gaiaOnsource,gaiaOffsource,baseLine,lRange,bRange,saveFigureName,noiseLevel=1.,signalLevel=5.,smScale=50,draw=True,lowerDisCut=1.,upperDisCut=2000,figNameMark=None,gaiaForeCut=None,inputRow=None, vlsr=None, correctBaseline=True, legendCol=1):
 		
 		"""
 		
@@ -2410,7 +2420,7 @@ class GAIADIS:
 			#ax=plt.subplot(gs[6:,6: ])
 			axRaw=plt.subplot(gs[0:5,6: ] )
 			#axRaw=plt.subplot2grid((10*nn,10*nn), (0,4),colspan=6,rowspan=4)
-			self.drawRawGaia( axRaw,gaiaOnsource,gaiaOffsource,gaiaForeCut=gaiaForeCut,row=newDisRow,figNameMark=figNameMark,markLoc=4,baseline=baseLine ) 
+			self.drawRawGaia( axRaw,gaiaOnsource,gaiaOffsource,gaiaForeCut=gaiaForeCut,row=newDisRow,figNameMark=figNameMark,markLoc=4,baseline=baseLine,  legendCol=legendCol )
 			
 
   
@@ -2468,10 +2478,10 @@ class GAIADIS:
 #saveFigureName=sourceName #+  #"{}_{}_{}_{}{}".format(self.sourceRow[disTB.sourceName],lowerDisCut,upperDisCut,paraErrorCut,'_extinctionGaiaAgBaseline.png')
 
 		print "saving as: " ,saveFigureName
-
+		#close
 		#plt.savefig(  self.sourceName+'_extinctionGaiaAg.pdf', bbox_inches="tight")
 		#plt.savefig( saveFigureName, bbox_inches="tight")
-		
+		plt.close()
 		return newDisRow
 		#return distance, distanceStd #lowerDis,upperDis
 
@@ -3082,6 +3092,7 @@ class GAIADIS:
  
  
 		return [centerL-lSize/2.,  centerL+lSize/2.   ], [centerB-bSize/2., centerB+bSize/2. ] 
+
 
 
 	def drawTest(self):
