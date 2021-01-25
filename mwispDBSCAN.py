@@ -57,8 +57,8 @@ class  MWISPDBSCAN(object):
 
 
     def __init__(self):
-        self.getModelTB()
-
+        #self.getModelTB()
+        pass
 
     def setDBSCANParameters(self,cutoff_sigma=2,minPts=4,connectivity=1):
 
@@ -124,30 +124,6 @@ class  MWISPDBSCAN(object):
             self.processPath=targetPath
         else:
             print "The target output path does not exist, please check your path: ", targetPath
-
-
-    def getModelTB(self):
-        """
-        provide a TB file that can be used a model of catalog, new columns could be added to this table
-        :return:
-        """
-
-        #targetFileName="https://raw.githubusercontent.com/SHAOqzyan/MWISPdbscan/master/minV3minP16_dendroCatTrunk.fit"
-
-        targetFileName="minV3minP16_dendroCatTrunk.fit"
-
-        if os.path.isfile(targetFileName):
-            self.modelTBFile=targetFileName
-        else:
-            print "Downloading a modelTB file from the internet..."
-            os.system("wget https://raw.githubusercontent.com/SHAOqzyan/MWISPdbscan/master/minV3minP16_dendroCatTrunk.fit")
-
-        if os.path.isfile(targetFileName):
-            self.modelTBFile=targetFileName
-
-        else:
-            print "Cannot download modelTB onthe internet, you need to manually download a table file named minV3minP16_dendroCatTrunk.fit (https://raw.githubusercontent.com/SHAOqzyan/MWISPdbscan/master/minV3minP16_dendroCatTrunk.fit)"
-
 
 
 
@@ -364,12 +340,13 @@ class  MWISPDBSCAN(object):
         newTB = Table( names=( "_idx", "area_exact", "v_cen", "v_rms",\
                                  "x_cen", "y_cen", "sum",  "l_rms" , \
                                  "b_rms" , "pixN","peak","peakL",\
-                                 "peakB","peakV","area_accurate","allChannel", "has22" ), dtype=( 'i8',"f8","f8", "f8", \
+                                 "peakB","peakV","area_accurate", "lineWidth","allChannel", "has22" ), dtype=( 'i8',"f8","f8", "f8", \
                                                                                                   "f8","f8","f8","f8",\
                                                                                                   "f8","i8","f8","i8",\
-                                                                                                  "i8","i8","f8","i8","i4",)
+                                                                                                  "i8","i8","f8","f8","i8","i4",)
 
                                                                                      )
+        newTB["area_accurate"].unit="arcmin2"
 
         newTB["area_exact"].unit="arcmin2"
         newTB["v_cen"].unit="km/s"
@@ -443,6 +420,7 @@ class  MWISPDBSCAN(object):
 
         if len(dataCO.shape)==4:
             dataCO=dataCO[0]
+        dataZero = np.zeros_like(dataCO)
 
 
         if self.averageRMS is not None and self.rawCOFITS is not None:
@@ -455,10 +433,7 @@ class  MWISPDBSCAN(object):
             print "A rmsData is needed to select peakSgima"
             return
 
-
-
         saveCatName=self.getSaveCatName(doClean=doClean)
-        clusterTBOld = Table.read(self.modelTBFile)
 
 
         minV = np.nanmin(dataCluster[0]) #noise mask value
@@ -474,50 +449,7 @@ class  MWISPDBSCAN(object):
 
         Z0, Y0, X0 = clusterIndex1D
 
-        newTB = Table(clusterTBOld[0])
-        newTB["sum"] = newTB["flux"]
-
-
-        newTB["l_rms"] = newTB["v_rms"]*0
-        newTB["b_rms"] = newTB["v_rms"]*0
-
-        newTB["pixN"] = newTB["v_rms"]*0
-        newTB["peak"] = newTB["v_rms"]*0
-
-        newTB["peakL"] = newTB["v_rms"]*0
-        newTB["peakB"] = newTB["v_rms"]*0
-        newTB["peakV"] = newTB["v_rms"]*0
-        newTB["area_accurate"] = newTB["area_exact"]*0  # the column of area_accurate need to cos(b) facor
-
-        # newTB["Nchannel"]=newTB["v_rms"] #number of channels, whis is used to sellect
-
-        newTB["allChannel"] = newTB["v_rms"]*0  # number channel involved
-        newTB["has22"] = newTB["v_rms"]*0  # number channel involved
-
-
-        #clear TB
-        newTB["sum"].unit="K"
-        del newTB["area_ellipse"]
-        del newTB["flux"]
-        del newTB["major_sigma"]
-        del newTB["minor_sigma"]
-        del newTB["radius"]
-        del newTB["position_angle"]
-
-
-
-        newTB["v_cen"].unit="km/s"
-        newTB["x_cen"].unit="deg"
-        newTB["y_cen"].unit="deg"
-        newTB["l_rms"].unit="deg"
-        newTB["b_rms"].unit="deg"
-        newTB["peakB"].unit=""
-        newTB["peakL"].unit=""
-        newTB["peakV"].unit=""
-        newTB["peak"].unit="K"
-
-        newTB["allChannel"].unit=""
-        newTB["has22"].unit=""
+        newTB =  self.getEmptyCat(getEmptyRow=False )
 
 
         zeroProjection = np.zeros((Ny, Nx))  # one zero channel, used to get the projection area and
@@ -538,8 +470,8 @@ class  MWISPDBSCAN(object):
         widgets = ['Recalculating cloud parameters: ', Percentage(), ' ', Bar(marker='0', left='[', right=']'), ' ', ETA(),
                    ' ', FileTransferSpeed()]  # see docs for other options
 
-        catTB = newTB.copy()
-        catTB.remove_row(0)
+        catTB = newTB
+
 
         # zeroP
         # remove any cloud with voxels less than minPix
@@ -553,8 +485,6 @@ class  MWISPDBSCAN(object):
         pbar = ProgressBar(widgets=widgets, maxval=len(GoodIDs))
         pbar.start()
 
-        ####
-
         for i in range(len(GoodIDs)):
 
             # i would be the newID
@@ -562,7 +492,7 @@ class  MWISPDBSCAN(object):
 
             pixN = GoodCount[i]
 
-            newRow = newTB[0]
+            newRow =  self.getEmptyCat(getEmptyRow=True )
 
             newRow[idCol] = newID
 
@@ -592,8 +522,6 @@ class  MWISPDBSCAN(object):
             if peak <  peakSimga and doClean:  #  accurate to lines
                 continue #do not consider the minimum peaks
 
-
-
             # #criteria 3, check consecutive channels
 
             ############### ###
@@ -601,7 +529,6 @@ class  MWISPDBSCAN(object):
 
             if len(diffVs) < self.minChannel and doClean:  # reject all cloud that has channels less than 3 channels
                 continue
-
 
 
             # get the exact peak position, which would be used to
@@ -612,7 +539,7 @@ class  MWISPDBSCAN(object):
             zeroProjectionExtend[0:-1, 0:-1] = zeroProjection
             sum22 = zeroProjectionExtend[0:-1, 0:-1] + zeroProjectionExtend[0:-1, 1:] + zeroProjectionExtend[1:,
                                                                                         0:-1] + zeroProjectionExtend[1:, 1:]
-
+            projectionPixN =np.sum(zeroProjection)
             # if any pixel>4:
             #
 
@@ -683,12 +610,61 @@ class  MWISPDBSCAN(object):
             # newRow["Nchannel"] =    np.max(P3Value)# if there is a three consecutive spectra in the cloud
             newRow["allChannel"] = len(diffVs)
 
-            catTB.add_row(newRow)
 
             zeroProjection[projectIndex] = 0
             zeroProjectionExtend[0:-1, 0:-1] = zeroProjection
 
 
+            ##################################################below are equivalenet legnth
+
+            dataZero[cloudIndex] = dataCO[cloudIndex]
+
+            # cropThe cloudRange
+            minY = np.min(cloudB)
+            maxY = np.max(cloudB)
+            ###########
+            minX = np.min(cloudL)
+            maxX = np.max(cloudL)
+
+            ###########
+            minZ = np.min(cloudV)
+            maxZ = np.max(cloudV)
+
+            #########
+
+
+
+            cloudCropSpectra = dataZero[:, minY:maxY + 1, minX:maxX + 1]
+
+            averageSpectraCrop = np.nansum(cloudCropSpectra, axis=(1, 2))
+
+
+
+            # count the number spectra
+
+            totalSpectral = projectionPixN/1.
+
+            meanSpectral = averageSpectraCrop / 1. / totalSpectral
+
+            #if 0:
+                #savefileName = saveSpectralPath + "{}_{}Spectral".format(regionName, testID)
+
+                #np.save(savefileName, [vAxis, meanSpectral])
+
+
+            spectraPeak = np.max(meanSpectral)
+
+            area =dv * np.sum(meanSpectral)
+
+
+
+            eqLineWidth = area / spectraPeak
+            dataZero[cloudIndex] = 0
+
+            newRow["lineWidth"] = eqLineWidth
+
+
+            catTB.add_row(newRow)
 
             pbar.update(i)
 
@@ -705,12 +681,7 @@ class  MWISPDBSCAN(object):
             self.catFITSName=saveCatName
         return saveCatName
 
-    def getEmptyTB(self,tb):
-        newTB=Table( tb[0] )
 
-        newTB.remove_row(0)
-
-        return newTB
 
 
     def cleanTB(self):
@@ -1117,131 +1088,6 @@ class  MWISPDBSCAN(object):
             id = cloudName.split("Cloud")[-1]
             return int(id)
 
-    def getEquivalentLinewidth(self,labelFITSName, inputTBFile ,saveSpectral=False, inputTB= None ):
-        """
-        add a colnames of linewidth to the inputTB
-        :param inputTB:
-        :return:
-        """
-
-        #
-
-
-        #first read label and CO data
-        dataCluster,headCluster=myFITS.readFITS( labelFITSName)
-
-
-        dataCO,headCO= myFITS.readFITS( self.rawCOFITS   )
-
-        if len(dataCO.shape) ==4:
-            dataCO = dataCO[0]
-
-
-        if inputTBFile is not None:
-            filterTB= Table.read(inputTBFile)  # remove unrelated sources  #self.selectTB(rawTB)
-
-        if inputTB is not None:
-            filterTB = inputTB
-
-        cubeCO = SpectralCube.read( labelFITSName )
-        vAxis = cubeCO.spectral_axis
-
-
-        vAxis = vAxis.value / 1000.  # convert to rms
-
-        noiseV = np.nanmin(dataCluster[0])
-        index1D = np.where(dataCluster > noiseV)
-        values1D = dataCluster[index1D]
-
-        Z0, Y0, X0 = index1D
-
-        dataZero = np.zeros_like(dataCluster)
-
-        widgets = ['Geting line equivalent width: ', Percentage(), ' ', Bar(marker='0', left='[', right=']'), ' ', ETA(), ' ',
-                   FileTransferSpeed()]  # see docs for other options
-        pbar = ProgressBar(widgets=widgets, maxval=len(filterTB))
-        pbar.start()
-
-        try:
-            filterTB["lineWidth"] = filterTB["v_rms"]
-        except:
-            filterTB["lineWidth"] = filterTB["vlsr"]
-
-
-
-        i = 0
-
-
-
-
-
-
-        for eachR in filterTB:
-
-            testID =  self.getCloudIDByRow( eachR )
-
-
-            testIndices = self.getIndices(Z0, Y0, X0, values1D, testID)
-            singleZ0, singleY0, singleX0 = testIndices
-
-            dataZero[testIndices] = dataCO[testIndices]
-
-            # cropThe cloudRange
-            minY = np.min(singleY0)
-            maxY = np.max(singleY0)
-            ###########
-            minX = np.min(singleX0)
-            maxX = np.max(singleX0)
-
-            ###########
-            minZ = np.min(singleZ0)
-            maxZ = np.max(singleZ0)
-
-            #########
-
-            cloudCropSpectra = dataZero[:, minY:maxY + 1, minX:maxX + 1]
-
-            cloudCropCube = dataZero[minZ:maxZ + 1, minY:maxY + 1, minX:maxX + 1]
-
-            averageSpectraCrop = np.nansum(cloudCropSpectra, axis=(1, 2))
-
-            intCloud = np.nansum(cloudCropCube, axis=0)
-
-            # count the number spectra
-
-            totalSpectral = len(intCloud[intCloud > 0])
-
-            meanSpectral = averageSpectraCrop / 1. / totalSpectral
-
-            if saveSpectral:
-                savefileName = saveSpectralPath + "{}_{}Spectral".format(regionName, testID)
-
-                np.save(savefileName, [vAxis, meanSpectral])
-
-
-            spectraPeak = np.max(meanSpectral)
-
-            area = (vAxis[1] - vAxis[0]) * np.sum(meanSpectral)
-
-            eqLineWidth = area / spectraPeak
-            dataZero[testIndices] = 0
-
-            eachR["lineWidth"] = eqLineWidth
-
-            #lineWdith.append(eqLineWidth)
-
-            i = i + 1
-
-            pbar.update(i)
-
-        pbar.finish()
-        if inputTBFile is not None:
-
-            saveTBAs=  inputTBFile[0:-5]+"_LW.fit"
-        else:
-            saveTBAs=  "MCcat_LW.fit"
-
-        filterTB.write(saveTBAs, overwrite=True)
 
 
     def ZZZ(self):
