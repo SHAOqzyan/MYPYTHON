@@ -353,6 +353,52 @@ class  MWISPDBSCAN(object):
         fits.writeto(writeName, rmsData, header=COHead)
         return fits.open(writeName)[0]
 
+
+    def getEmptyCat(self,getEmptyRow=False):
+        """
+
+        :return:
+        """
+
+        #############
+        newTB = Table( names=( "_idx", "area_exact", "v_cen", "v_rms",\
+                                 "x_cen", "y_cen", "sum",  "l_rms" , \
+                                 "b_rms" , "pixN","peak","peakL",\
+                                 "peakB","peakV","area_accurate","allChannel", "has22" ), dtype=( 'i8',"f8","f8", "f8", \
+                                                                                                  "f8","f8","f8","f8",\
+                                                                                                  "f8","i8","f8","i8",\
+                                                                                                  "i8","i8","f8","i8","i4",)
+
+                                                                                     )
+
+        newTB["area_exact"].unit="arcmin2"
+        newTB["v_cen"].unit="km/s"
+        newTB["v_rms"].unit="km/s"
+
+        newTB["x_cen"].unit="deg"
+        newTB["y_cen"].unit="deg"
+        newTB["l_rms"].unit="deg"
+        newTB["b_rms"].unit="deg"
+
+        newTB["peakB"].unit=""
+        newTB["peakL"].unit=""
+        newTB["peakV"].unit=""
+        newTB["peak"].unit="K"
+        newTB["sum"].unit="K"
+
+        newTB["allChannel"].unit=""
+        newTB["has22"].unit=""
+
+
+        if getEmptyRow:
+            newTB.add_row()
+            return newTB[0]
+
+        return newTB
+
+
+
+
     def getCatFromLabelArray(self,doClean=True ):
         """
         Extract catalog from label fits, the minPix and rms is only used for saving
@@ -364,6 +410,8 @@ class  MWISPDBSCAN(object):
         :param head:
         :return:
         """
+        #### Add a column of line width, which will be used in statistics
+        ####
 
         if self.labelFITSName is None:
 
@@ -371,7 +419,6 @@ class  MWISPDBSCAN(object):
             return
 
         dataCluster, headCluster = myFITS.readFITS(self.labelFITSName)
-
 
         #calculate the area of one pixel
 
@@ -411,10 +458,7 @@ class  MWISPDBSCAN(object):
 
 
         saveCatName=self.getSaveCatName(doClean=doClean)
-
-
         clusterTBOld = Table.read(self.modelTBFile)
-
 
 
         minV = np.nanmin(dataCluster[0]) #noise mask value
@@ -462,8 +506,6 @@ class  MWISPDBSCAN(object):
 
 
 
-
-
         newTB["v_cen"].unit="km/s"
         newTB["x_cen"].unit="deg"
         newTB["y_cen"].unit="deg"
@@ -476,10 +518,6 @@ class  MWISPDBSCAN(object):
 
         newTB["allChannel"].unit=""
         newTB["has22"].unit=""
-
-
-
-
 
 
         zeroProjection = np.zeros((Ny, Nx))  # one zero channel, used to get the projection area and
@@ -1079,19 +1117,31 @@ class  MWISPDBSCAN(object):
             id = cloudName.split("Cloud")[-1]
             return int(id)
 
-    def getEquivalentLinewidth(self,labelFITSName, inputTBFile ,saveSpectral=False):
+    def getEquivalentLinewidth(self,labelFITSName, inputTBFile ,saveSpectral=False, inputTB= None ):
         """
         add a colnames of linewidth to the inputTB
         :param inputTB:
         :return:
         """
 
+        #
+
+
         #first read label and CO data
         dataCluster,headCluster=myFITS.readFITS( labelFITSName)
+
+
         dataCO,headCO= myFITS.readFITS( self.rawCOFITS   )
 
+        if len(dataCO.shape) ==4:
+            dataCO = dataCO[0]
 
-        filterTB= Table.read(inputTBFile)  # remove unrelated sources  #self.selectTB(rawTB)
+
+        if inputTBFile is not None:
+            filterTB= Table.read(inputTBFile)  # remove unrelated sources  #self.selectTB(rawTB)
+
+        if inputTB is not None:
+            filterTB = inputTB
 
         cubeCO = SpectralCube.read( labelFITSName )
         vAxis = cubeCO.spectral_axis
@@ -1120,6 +1170,12 @@ class  MWISPDBSCAN(object):
 
 
         i = 0
+
+
+
+
+
+
         for eachR in filterTB:
 
             testID =  self.getCloudIDByRow( eachR )
@@ -1179,8 +1235,14 @@ class  MWISPDBSCAN(object):
             pbar.update(i)
 
         pbar.finish()
+        if inputTBFile is not None:
 
-        saveTBAs=  inputTBFile[0:-5]+"_LW.fit"
+            saveTBAs=  inputTBFile[0:-5]+"_LW.fit"
+        else:
+            saveTBAs=  "MCcat_LW.fit"
+
         filterTB.write(saveTBAs, overwrite=True)
+
+
     def ZZZ(self):
         pass

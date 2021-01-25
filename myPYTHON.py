@@ -1392,7 +1392,7 @@ class myFITS:
 
 		wmap.wcs.bounds_check(False, False)
 
-		if not Vrange and not Lrange and not Brange:
+		if  Vrange is None  and   Lrange is None and   Brange is None :
 			print ("No crop range is provided." )
 			return
 		
