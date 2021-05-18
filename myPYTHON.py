@@ -82,6 +82,7 @@ class myFITS:
 	fitsPath=None
 	thisFITS=None
 	rmsCO12=0.5
+	R0=8.178 #34 the background would be changed #  2019A&A...625L..10G
 
 	def __init__(self,FITSname=None):
 		if FITSname:#with fits input
@@ -305,7 +306,7 @@ class myFITS:
 		return data[Z][Y][X]
 
 	@staticmethod
-	def smoothVelAxis(fitsName,targetVelResolution, saveName ):
+	def smoothVelAxis(fitsName,targetVelResolution, saveName, mimicFITS=None  ):
 		"""
 		Resample a data cube along the velocity
 		only used for MWISP
@@ -316,7 +317,8 @@ class myFITS:
 		:param saveName:
 		:return:
 		"""
-		#
+
+
 
 		print ( "Starting to regrid the velocity axis, this may take a little while..." )
 
@@ -326,40 +328,74 @@ class myFITS:
 
 		#get current reslution
 		velPix = cube.header["CDELT3"]/1000. #in km/s
-		current_resolution = velPix * u.km / u.s
+		current_resolution = velPix  * u.km / u.s
 
-		target_resolution = targetVelResolution * u.km / u.s
+		if mimicFITS is not None:
+			cubeMimic = SpectralCube.read(mimicFITS)
+			targetVelResolution =  cubeMimic.header["CDELT3"]/1000. + 1
+
+
+
+
+		target_resolution = targetVelResolution   * u.km / u.s
 		pixel_scale =velPix * u.km / u.s
 		gaussian_width = ((target_resolution ** 2 - current_resolution ** 2) ** 0.5 /
 						  pixel_scale / fwhm_factor)
-		kernel = Gaussian1DKernel(gaussian_width)
+
+
+		kernel = Gaussian1DKernel(gaussian_width.value)
 		new_cube = cube.spectral_smooth(kernel)
 
-		newDV = 0.2 # km/s
+		newDV = targetVelResolution # km/s
 
 		vAxis = cube.spectral_axis.value/1000. #in
 
 		minV = np.min(vAxis)
-		minV=int(minV)-1
+		#minV=int(minV)-1
 
 		maxV = np.max(vAxis)
-		maxV=int(maxV)+1
+		#maxV=int(maxV)+1
 
-		new_axis=np.arange(minV,maxV,newDV)*1000*u.m/u.s
+		#
+		if maxV<0:
+			new_axis= np.arange(0,abs(minV), newDV )
+			new_axis=  - new_axis
+			new_axis=   new_axis[::-1]
+
+		elif minV>0:
+			new_axis = np.arange(0, maxV , newDV)
+
+		else:
 
 
+			new_axisPart1= np.arange(0,maxV , newDV )
+			new_axisPart2= np.arange(newDV,abs(minV), newDV )
+			new_axisPart2= -new_axisPart2
+			new_axisPart2=  new_axisPart2[::-1]
 
+			new_axis= np.concatenate( [ new_axisPart2, new_axisPart1 ] )
+
+
+		new_axis= new_axis *1000*u.m/u.s
 		new_axis=new_axis[new_axis >=1000*np.min(vAxis)*u.m/u.s ]
-
 		new_axis=new_axis[new_axis <= 1000*np.max(vAxis)*u.m/u.s]
 
 
-		interp_Cube = cube.spectral_interpolate(new_axis,  suppress_smooth_warning=True)
+		if mimicFITS is not None:
+
+			cubeMimic = SpectralCube.read(mimicFITS)
+			new_axis = cubeMimic.spectral_axis
 
 
-		interp_Cube.write(saveName,overwrite=True )
 
-		print ( "Smooting the veloicyt axis done!" )
+		interp_Cube = new_cube.spectral_interpolate(new_axis,  suppress_smooth_warning=True)
+
+
+		interp_Cube.write(saveName,overwrite=True,format="fits" )
+
+		print ( "Smooting the velocity axis done!" )
+
+
 	def smoothSpaceFITS(self,data,dataHeader,rawBeam,resultBeam,outPutName): # arcmin
 		
 		"""
@@ -373,8 +409,7 @@ class myFITS:
 		"""
  
 		#dataNew=COdata.copy()
-		
-		
+
 		
 		# the pixel resolution
 		
@@ -445,6 +480,24 @@ class myFITS:
 		os.remove(outPutName)
 		fits.writeto(outPutName, data, dataHeader)
 
+
+	def getEmptyTB(self,tb):
+		"""
+
+		:param tb:
+		:return:
+		"""
+		newTB = tb.copy()
+		newTB.add_row()
+		newTB=newTB[-1:]
+		newTB.remove_row(0)
+
+		return newTB
+
+
+
+
+
 	def getAverageSpec(self,fitsFile,path="./",cores=None):
 		"""
 		This function is dedicated to get the average spectrum for the CO lines
@@ -463,33 +516,33 @@ class myFITS:
 		avgSpec=0
 		
 		for eachCore in cores:
-		    #l,b= eachCore["GLON_deg"],eachCore["GLAT_deg"]
-		    #spectrum,vs =self.getSpectraByLB( COdata,COheader,l,b) 
+			#l,b= eachCore["GLON_deg"],eachCore["GLAT_deg"]
+			#spectrum,vs =self.getSpectraByLB( COdata,COheader,l,b)
 		
-		    X,Y= eachCore["X_peak"],eachCore["Y_peak"]
-		    spectrum,vs =self.getSpectraByIndex( COdata,COheader,int(X),int(Y))
+			X,Y= eachCore["X_peak"],eachCore["Y_peak"]
+			spectrum,vs =self.getSpectraByIndex( COdata,COheader,int(X),int(Y))
 		
 		
-		    avgSpec=avgSpec+spectrum
-		    #print l,b,spectrum[0]
+			avgSpec=avgSpec+spectrum
+			#print l,b,spectrum[0]
 		avgSpec=avgSpec/1./len(cores)
 		
 		if 0:
-		    l,b= cores[0]["GLON_deg"],cores[0]["GLAT_deg"]
+			l,b= cores[0]["GLON_deg"],cores[0]["GLAT_deg"]
 		
-		    avgSpec,vs =self.getSpectraByLB( COdata,COheader,l,b)
+			avgSpec,vs =self.getSpectraByLB( COdata,COheader,l,b)
 		
 		if 0:
-		    fig, ax = plt.subplots()
-		    ax.plot(vs,avgSpec)
-		    plt.show()
+			fig, ax = plt.subplots()
+			ax.plot(vs,avgSpec)
+			plt.show()
 		
 		return avgSpec,vs
 
 	def box(self, centerL, centerB, lSize, bSize, dummy=0):
 		"""
-        return lRange and B Range
-        """
+		return lRange and B Range
+		"""
 
 		lSize = lSize / 3600.
 		bSize = bSize / 3600.
@@ -547,6 +600,75 @@ class myFITS:
 			pass
 
 		return  header
+
+
+	def intFITS(self,FITSFile,vRange=None,overwrite=True,saveName=None):
+		"""
+		# simple integration
+		:param self:
+		:param FITSFile:
+		:param vRange:
+		:param overwrite:
+		:param saveName:
+		:return:
+		"""
+
+		if vRange is not None:
+			minV = min(vRange)
+			maxV = max(vRange)
+
+			fitsBaseName = os.path.basename( FITSFile )
+
+			vRange = [minV, maxV]
+
+
+
+
+		if saveName  is None:
+			saveName="int_{:.2f}_{:.2f}".format(minV,maxV)+ fitsBaseName
+
+
+		cubeData,cubeHead=myFITS.readFITS(FITSFile)
+		wcs=WCS(cubeHead)
+		dv= cubeHead["CDELT3"] / 1000. #km/s
+
+		Nz,Ny,Nx=cubeData.shape
+
+		v0,l0,b0 =wcs.wcs_pix2world(0,0,0,0)
+
+		if vRange is not None:
+			a,a, indexV0 =wcs.wcs_world2pix(l0,b0, vRange[0]*1000 , 0)
+
+			a,a, indexV1 =wcs.wcs_world2pix(l0,b0, vRange[1]*1000,  0 )
+
+			indexV0,indexV1=map(round,[indexV0,indexV1])
+			indexV0,indexV1=map(int,[indexV0,indexV1])
+
+			startV = max([0, indexV0])
+			endV = min([indexV1, Nz - 1])
+
+		else:
+			startV=0
+			endV=Nz
+
+		####
+
+
+		sumData= cubeData[ startV:endV+1 ]
+
+		sum2D=np.nansum(sumData,axis=0,dtype=float)
+		sum2D=sum2D*dv
+
+		if overwrite:
+
+			fits.writeto(saveName,sum2D, header=cubeHead ,overwrite=True )
+			return
+		else:
+
+			if os.path.isfile(saveName):
+				return
+
+			fits.writeto(saveName, sum2D, header=cubeHead, overwrite=True)
 
 
 	def momentFITSGood(self,FITSFile,vRange,mom=0,outFITS=None, overWrite=True,sigma=3,rms= 0.5,dv= 0.158737644553):
@@ -910,7 +1032,7 @@ class myFITS:
 
 
 	@staticmethod
-	def readFITS(fitsFile):
+	def readFITS(fitsFile,):
 		"""
 		parameters: fitsFile
 		This file will return the data and header of the fits
@@ -927,7 +1049,7 @@ class myFITS:
 
 		header=head.copy()
 		#print "Reducing to 3D....if 4D"
- 	
+
 		try:
 			del header["CRPIX4"]		
 			del header["CDELT4"]		
@@ -1771,6 +1893,15 @@ class myFITS:
 		cutFIRST=wmap.wcs_world2pix(Xrange[0],Yrange[0], 0)
 		cutLAST =wmap.wcs_world2pix(Xrange[1],Yrange[1], 0)
 
+		print (cutFIRST )
+
+		print ( cutLAST )
+		print ( Yrange )
+
+
+
+		#WWWWWWWWWWWWWWWWW
+
 
 		cutFIRST=map(round,cutFIRST)
 		cutLAST=map(round,cutLAST)
@@ -2069,6 +2200,92 @@ class myFITS:
 		f.close()
 
 		
+	def mimic4D(self,fitsCube,saveName,templateFITS="/media/qzyan/maclinux/Data/MWISP/G210Deep/2180-005U.fits" ):
+		"""
+
+		:param self:
+		:param fitsCube:
+		:param templateFITS:
+		:param saveName:
+		:return:
+		"""
+		######
+		data,head=self.readFITS(fitsCube)
+
+		fitsRead=fits.open(templateFITS)
+
+		headModel=fitsRead[0].header
+
+
+		newData= np.asarray( [data] )
+		print (newData.shape )
+
+		####
+		newHead=head
+		#newHead["NAXIS4"] =  headModel["NAXIS4"]
+		newHead["CTYPE4"] = headModel["CTYPE4"]
+		newHead["CRVAL4"] = headModel["CRVAL4"]
+		newHead["CDELT4"] = headModel["CDELT4"]
+		newHead["CRPIX4"] = headModel["CRPIX4"]
+		newHead["CROTA4"] = headModel["CROTA4"]
+
+
+		fits.writeto(saveName, newData, header=newHead, overwrite=True)
+
+	def nanTo1000(self,fitsCube):
+		"""
+
+		:param self:
+		:param fitsCube:
+		:return:
+		"""
+		data,head=self.readFITS(fitsCube)
+
+		data[np.isnan(data) ]= -1000
+
+		fits.writeto(fitsCube, data, header=head, overwrite=True)
+
+
+	def nanTo0(self,fitsCube):
+		"""
+
+		:param self:
+		:param fitsCube:
+		:return:
+		"""
+		data,head=self.readFITS(fitsCube)
+
+		data[np.isnan(data) ]=  0
+
+		fits.writeto(fitsCube, data, header=head, overwrite=True)
+
+
+	def getLBVRange(self, fitsFile):
+		"""
+
+		:param data:
+		:param head:
+		:return:
+		"""
+
+		####
+
+		data,head=self.readFITS(fitsFile)
+
+		if len(data.shape) ==4:
+			data=data[0]
+
+		wcsCO = WCS(head, naxis=3)
+		Nz, Ny, Nx = data.shape
+
+		l0, b0,v0 = wcsCO.wcs_pix2world(0, 0,0, 0)
+		l1, b1,v1 = wcsCO.wcs_pix2world(Nx - 1, Ny - 1,Nz-1, 0)
+
+		return [l1, l0], [b0, b1],[ v0/1000., v1/1000. ]
+
+
+
+
 
 	def getRMSFITS(self,fitsCube,saveName,returnRMSValue=False,returnData=False):
 		pass
@@ -2158,14 +2375,14 @@ class myFITS:
 
 	def mergeByVaxis(self, fits1, fits2, outPut="mergedCube.fits"):
 		"""
-        #takes two fits files, and merge them together, to see if the SASMA can process this large data
-        we merge the local and the perseus arm file,
+		#takes two fits files, and merge them together, to see if the SASMA can process this large data
+		we merge the local and the perseus arm file,
 
-        :param fits1:
-        :param fits2:
-        :param outPut:
-        :return:
-        """
+		:param fits1:
+		:param fits2:
+		:param outPut:
+		:return:
+		"""
 
 		# find the fits, that has the lowerest velocity, and append is to the
 
@@ -2222,6 +2439,14 @@ class myFITS:
 
 		fits.writeto( outPut, mergeData, header=lowHead, overwrite=True)
 		return outPut
+
+
+
+
+
+
+
+
 	def ZZZ(self):
 		#mark the end of the file
 		pass

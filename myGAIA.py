@@ -37,6 +37,7 @@ from distanceMCMC5p import getDisAndErrorMCMCTrucatedGau5p
 from sklearn.isotonic import IsotonicRegression
 from distanceMCMCLinearGauss import getDisAndErrorMCMCTrucatedGau6p
 
+
 from distanceMCMCTwoGauss  import getDisAndErrorMCMCG2
 from termcolor import colored 
 import readline
@@ -142,10 +143,7 @@ class GAIADIS:
 			GAIA_l=doAG.GAIA_l
 			GAIA_b=doAG.GAIA_b
 			
- 
-					
-					
-			
+
 
 		
 		self.redoPara=redoPara 
@@ -193,7 +191,7 @@ class GAIADIS:
 
  
 
-	def calDisWithG2(self,oncloudStars,offcloudStars,baseLine,smScale=50,correctBaseline=True  ):
+	def calDisWithG2(self,oncloudStars,offcloudStars,baseLine,smScale=50,correctBaseline=True ,guessRow=None  ):
 		"""
 		calculate the distance with oncloud stars, no figure will be provided, and only sample will be returned
 		
@@ -275,7 +273,7 @@ class GAIADIS:
 			# print(name)
 			print "Starting process ",name
 			
-			proc = multiprocessing.Process(target=getDisAndErrorMCMCG2, args=(dataDis,dataAG,disError,AGError,name, returnSampleDic,self.chainSample,self.burn_in,self.thinning, self.maxDisCut))
+			proc = multiprocessing.Process(target=getDisAndErrorMCMCG2, args=(dataDis,dataAG,disError,AGError,name, returnSampleDic,self.chainSample,self.burn_in,self.thinning, self.maxDisCut, guessRow ))
 			procs.append(proc)
 			proc.start()
 
@@ -959,11 +957,9 @@ class GAIADIS:
 	def getDisAndAGFromTB(self,oncloudStars):
 		#print "Calculating distances and their errors...."
 		
+
 		
-		
-		
-		
-		if "distance"  in oncloudStars.colnames and doAV.dist50 in oncloudStars.colnames:
+		if "distance"  in oncloudStars.colnames and doAV.dist50 in oncloudStars.colnames: #AV
 			# has  
 			#print "distance column found!!!!!!!!!!!!"
 			
@@ -977,25 +973,27 @@ class GAIADIS:
 
 			return np.array(dataDis),np.array( dataAG),np.array(disError), np.array(AGError)
  
-		if "distance"  in oncloudStars.colnames  :
-			# has  
+		if "distance"  in oncloudStars.colnames  : # AV is mimicing AG
+			# has
 			#print "distance column found!!!!!!!!!!!!"
-			
-			#oncloudStars.sort("distance") 
-			#offcloudStars.sort("distance") 
-			dataDis= oncloudStars["distance"] 
-			disError= oncloudStars["distance_err"]  
-			
+
+			#oncloudStars.sort("distance")
+			#offcloudStars.sort("distance")
+			dataDis= oncloudStars["distance"]
+			disError= oncloudStars["distance_err"]
+
 			dataAG=oncloudStars["a_g_val"]
 			AGError= oncloudStars["agError"]* dataAG
 
 			return np.array(dataDis),np.array( dataAG),np.array(disError), np.array(AGError)
- 
+
 
 
 
 		if doAV.dist50 in oncloudStars.colnames:
-			# has  
+
+			aaaaaaaaaaaaaaaaaaaaaaaaa #usually this is for AV without mimicing
+
 			#print "distance column found!!!!!!!!!!!!"
 			
 			#oncloudStars.sort("distance") 
@@ -1011,9 +1009,9 @@ class GAIADIS:
 
 			return np.array(dataDis)*1000.,np.array( dataAG),np.array(disError)*1000., np.array(AGError)
 
-		
-		
-		
+
+
+
 		dataDis= oncloudStars["parallax"]*0
 		disError=dataDis*0
 		dataAG=oncloudStars["a_g_val"]
@@ -1085,7 +1083,9 @@ class GAIADIS:
 
 		addCol=Column(name=colName,data=np.zeros(len(GaiaTB)))
 
-		GaiaTB.add_column(addCol)
+		if colName not in GaiaTB.colnames:
+
+			GaiaTB.add_column(addCol)
 
 		bgWCS=WCS(bgHead,naxis=2)
 
@@ -1917,7 +1917,9 @@ class GAIADIS:
 			
 				axRaw.plot([min(dataDis),distance],[agmu1,agmu1], 'r--',lw=1.5  ,dashes=(4, 2))
 				axRaw.plot([distance,max(dataDis)],[agmu2,agmu2], 'r--',lw=1.5  ,dashes=(4, 2))
-				
+
+
+
 			else:
 
 				disB=np.arange(min(dataDisOff),max(dataDisOff),1)
@@ -2151,18 +2153,10 @@ class GAIADIS:
 		if maskFITS!=None:
 			outMaskFITS= "CODrawCropMask.fits"
 			myFITS.cropFITS2D(maskFITS,outFITS=outMaskFITS,Lrange=lRange,Brange=bRange,overWrite=True)
-	
-	 
+
 			cropDataMask,cropHeadMask=myFITS.readFITS(outMaskFITS)
-		
- 
+
 			axBack[WCS(cropHeadMask)].contour(cropDataMask,  [1],cmap=cmap,vmin= 0.99,vmax=signalLevel*1.1, linewidths=0.5)
-		
-
-
-
-
-
 
 		
 		cmap2 = plt.cm.winter
@@ -2182,7 +2176,8 @@ class GAIADIS:
 		#axBack[WCS(cropHead)].contour(cropData,  [noiseLevel ],cmap=cmap,vmin=noiseLevel*0.7,vmax=signalLevel*1.1, linewidths=0.1)
 		#axBack[WCS(cropHeadMask)].contour
 		drawOn=self.getRandomRows(gaiaOnsource,N=3000)
-		
+
+
 		
 		axBack["gal"].scatter( drawOn[self.GAIA_l],drawOn[self.GAIA_b],s=0.5,color='green' ,marker='o' ,lw=0.3  )
 		
@@ -2217,8 +2212,20 @@ class GAIADIS:
 		#
 		x1,y1=backWCS.all_world2pix(cutlSmall,cutbLarge,0)	
 		
-		xRange=[x0,x1];
-		yRange=[y0,y1]
+
+
+		####
+		Ny,Nx =backData.shape
+
+		x0 = max( [0,x0 ] )
+		x1 = min( [ Nx-1,  x1 ] )
+
+		y0 = max( [0,y0 ] )
+		y1 = min( [ Ny-1,  y1 ] )
+
+		xRange = [x0,x1]
+		yRange = [y0,y1]
+
 		axBack.set_xlim(min(xRange),max(xRange)),  
 		axBack.set_ylim(min(yRange),max(yRange)),
 
@@ -2605,7 +2612,7 @@ class GAIADIS:
 			#AGErrorOff= ( offcloudStars[doAV.av84] - offcloudStars[ doAV.av16]    )/2.  #   gaiaOffsource[doAV.agError]*gaiaOffsource[self.GAIA_a_g_val]  
 		
 		#else:
-		AGErrorOff= offcloudStars[self.agError]*offcloudStars[self.GAIA_a_g_val]  
+		AGErrorOff= offcloudStars[self.agError]*offcloudStars[self.GAIA_a_g_val]  #very strange
 
 		
 		offcloudStars=offcloudStars[ AGErrorOff>self.agThresh ] 
@@ -2709,7 +2716,7 @@ class GAIADIS:
 		onCloudStars= myTB.filterByRange(gaiaAllDisCut,self.coint,[ signalLevel,None  ] )
  
 		gaiaOnsource= myTB.filterByRange(onCloudStars,self.GAIA_parallax,[None, upperPara] ) #cutSources
-
+		#### what the hell?
 		gaiaOnsource=self.addDisToTB(gaiaOnsource)
 		gaiaOffsource=self.addDisToTB(gaiaOffsource)
 		

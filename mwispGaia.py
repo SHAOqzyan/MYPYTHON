@@ -988,7 +988,7 @@ class dbscanDis: #a aclass dealing with distances to DBSCAN clouds
 
         return [searchIntFITS[0], searchMaskFITS[0]]
 
-    def getLBrangeWithMask(self, maskFITS):
+    def getLBrangeWithMask(self, maskFITS,extendByDeg=None):
         """
         """
 
@@ -1019,7 +1019,15 @@ class dbscanDis: #a aclass dealing with distances to DBSCAN clouds
 
         bRange = [min([startB, endB]), max([startB, endB])]
 
+        if extendByDeg is not None:
+
+            return self.expandLBRangeByDeg( lRange,bRange,data,tempWCS,extendByDeg,extendByDeg )
+
+
         return lRange, bRange
+
+
+
 
     def expandLBRangeByDeg(self, lRange, bRange, backData, backWCS, lExpand=0.5, bExpand=0.25):
         """
@@ -1076,6 +1084,24 @@ class dbscanDis: #a aclass dealing with distances to DBSCAN clouds
         cutBTop = min([centerB + newsizeB / 2., maxB])
 
         return [cutLRight, cutLLeft], [cutBBottome, cutBTop]
+
+    def getLatexlName(self,cloudName):
+
+        """
+
+        :param cloudName:
+        :return:
+
+        """
+        if "+" in cloudName:
+
+
+            return r"{}{}{}".format(cloudName.split("+")[0], "$+$" ,  cloudName.split("+")[1] )
+
+        else:
+            return r"{}{}{}".format(cloudName.split("-")[0], "$-$" ,  cloudName.split("-")[1] )
+
+            #return cloudName.split("-")[0]+r"$-$" + cloudName.split("-")[1]
 
     def getCloudNameByLB(self, l, b):
 

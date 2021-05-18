@@ -149,6 +149,11 @@ class  MWISPDBSCAN(object):
 
         return averageRMS+np.zeros(  (Ny,Nx) )
 
+
+
+
+
+
     def computeDBSCAN(  self  ):
         """
         There are two steps of computing DBSCAN, compute the DBSCAN label, 2 extract catlog, select post catalog and produce clean fits, would be doe seperatrely
@@ -732,7 +737,7 @@ class  MWISPDBSCAN(object):
 
 
 
-    def produceCloudIntFITS(self,rawCOFITS,LabelCOFITS,tbFile, outputPath="./cloudIntPath",  useTB=False, pureInt=False, foreground=False,m1FITS=False ):
+    def produceCloudIntFITS(self,rawCOFITS,LabelCOFITS,tbFile, outputPath="./cloudIntPath",  useTB=False, pureInt=False, foreground=False,m1FITS=False ,areaThresh=0.015):
         """
         the minimum Area of 0.015 square deg = 54 square arcmin, is the largest cloud we coud perform distance examination
 
@@ -751,6 +756,8 @@ class  MWISPDBSCAN(object):
         TB.sort("area_exact")
         TB.reverse()
 
+        TB=TB[ TB["area_exact"]>=areaThresh*3600 ] ## do not care small molecular clouds
+
         dataCO,headCO=myFITS.readFITS(rawCOFITS)
         coSpec0, vaxis0 = doFITS.getSpectraByIndex( dataCO,headCO,0,0 )
 
@@ -760,7 +767,8 @@ class  MWISPDBSCAN(object):
 
 
         dataCluster,headCluster=myFITS.readFITS( LabelCOFITS  )
-
+        dataCOMask = dataCO.copy()
+        dataCOMask[dataCluster==0] = 0
         ####################
 
         clusterIndex1D = np.where(dataCluster > 0)
@@ -875,7 +883,7 @@ class  MWISPDBSCAN(object):
             ##foreground fits
 
             if foreground: #the way of generating foreground fits is different, the following code is used to produce foreground fits for Q2
-                foreCOCube = dataCO[endVindex + 1:]
+                foreCOCube = dataCOMask[endVindex + 1:]
 
                 sumForeground =   np.sum( foreCOCube , axis=0,dtype=float )*velsolution
 
@@ -1087,6 +1095,32 @@ class  MWISPDBSCAN(object):
             cloudName = eachC["sourceName"]
             id = cloudName.split("Cloud")[-1]
             return int(id)
+
+
+
+    def removeKM34(self):
+        """
+        Remove bad channels around 34 km/s
+        :return:
+        """
+        ####
+
+        #### particularly for cloud in the third Galactic quadrant
+
+        ####
+
+        ####
+        ####
+
+        #this is only a rough
+
+
+
+
+
+
+
+
 
 
 
