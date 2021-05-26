@@ -10,7 +10,7 @@ from astropy.table import Table,vstack
 from myPYTHON import *
 import os
 from progressbar import *
-
+import gc
 import sys
 from skimage.morphology import erosion, dilation
 from scipy.ndimage import label, generate_binary_structure,binary_erosion,binary_dilation
@@ -36,7 +36,7 @@ class  MWISPDBSCAN(object):
     rmsData = None #must has the same shape with Ny,and Nz of the data file
 
     averageRMS = None
-
+    coreFITS=None
     cleanCatName = None
     cleanFITSName = None
     ################# DBSCAN parameters
@@ -47,14 +47,12 @@ class  MWISPDBSCAN(object):
 
 
     ###################### seting of catalog selection
-
+    saveCore = False
     minVox=16
     minChannel=3
     hasBeam=1
     minPeakSigma=5
     ###
-
-
 
     def __init__(self):
         #self.getModelTB()
@@ -75,6 +73,9 @@ class  MWISPDBSCAN(object):
 
 
     def sumEdgeByCon1(self, extendMask):  # 7 in total
+
+
+        #return  extendMask[1:-1, 1:-1, 1:-1] + extendMask[0:-2, 1:-1, 1:-1] +  extendMask[2:, 1:-1, 1:-1] + extendMask[1:-1, 0: -2, 1:-1]+ extendMask[1:-1, 2:, 1:-1]+ extendMask[1:-1, 1:-1, 0:-2] +   extendMask[1:-1, 1:-1, 2:]
         raw = extendMask[1:-1, 1:-1, 1:-1]
 
         leftShiftZ = extendMask[0:-2, 1:-1, 1:-1]
@@ -151,10 +152,25 @@ class  MWISPDBSCAN(object):
 
 
 
+    def getCoreArray(self,extendMask  ):
+        """
 
+        :param maskArray:
+        :param contype:
+        :return:
+        """
 
+        if self.connectivity == 1:
+            coreArray = self.sumEdgeByCon1(extendMask)
 
-    def computeDBSCAN(  self  ):
+        if self.connectivity == 2:
+            coreArray = self.sumEdgeByCon2(extendMask)
+
+        if self.connectivity == 3:
+            coreArray = self.sumEdgeByCon3(extendMask)
+        return coreArray
+
+    def computeDBSCAN(  self  ,splitN=  1   ):
         """
         There are two steps of computing DBSCAN, compute the DBSCAN label, 2 extract catlog, select post catalog and produce clean fits, would be doe seperatrely
         :param COdata:
@@ -199,30 +215,89 @@ class  MWISPDBSCAN(object):
         self.rmsData=rmsData #record the rms Data
 
         rmsCOData = COdata / rmsData
+
+        del COdata
+        gc.collect()
+
         goodValues = rmsCOData >= self.cutoff_sigma
-        extendMask = np.zeros([Nz + 2, Ny + 2, Nx + 2], dtype=int)
+
+        del rmsCOData
+        gc.collect()
 
 
-        extendMask[1:-1, 1:-1, 1:-1] = goodValues  # [COdata>=minValue]=1
 
         s = generate_binary_structure(3, self.connectivity )
 
-        if self.connectivity == 1:
-            coreArray = self.sumEdgeByCon1(extendMask)
 
-        if self.connectivity == 2:
-            coreArray = self.sumEdgeByCon2(extendMask)
 
-        if self.connectivity == 3:
-            coreArray = self.sumEdgeByCon3(extendMask)
+
+        overlapping=10
+
+        indexEdges= np.linspace(0,Nx-1,splitN+1,dtype=np.int64 )
+        coreArray = np.zeros_like(goodValues)+0
+
+        for i in range(len(indexEdges) -1 ):
+            ####
+            print "doing",i
+            indexRange = [indexEdges[i] - overlapping, indexEdges[i+1] + overlapping +1]
+
+            leftCut= overlapping
+            rightCut= indexEdges[i+1] - indexEdges[i] +1+overlapping
+
+            if i ==0:
+                indexRange[0]= 0
+                leftCut = 0
+                rightCut = indexEdges[i + 1] - indexEdges[i] + 1
+
+            if i == len(indexEdges) -1:
+                indexRange[1]= indexEdges[i+1]  +1
+                rightCut= indexEdges[i+1] - indexEdges[i] +1+overlapping
+
+
+
+            subGood = goodValues[:,:, indexRange[0]: indexRange[1] ]
+
+
+            subNz,subNy, subNx = subGood.shape
+            subExtend  = np.zeros([subNz + 2, subNy + 2, subNx + 2], dtype=int)
+            subExtend[1:-1,1:-1,1:-1] = subGood
+
+            subCoreArray = self.getCoreArray(subExtend)
+
+            coreArray[:,:,  indexEdges[i]  :  indexEdges[i+1] +1  ] = subCoreArray[:,:,leftCut: rightCut  ]
+            del subCoreArray
+            del subExtend
+            gc.collect()
+        #coreArray = self.getCoreArray(extendMask)
+
+
+        #goodValues=extendMask[1:-1, 1:-1, 1:-1]
+
 
         coreArray = coreArray >= self.minPts
+        gc.collect()
+
+
+
+
+
         coreArray[~goodValues] = False  # nan could be, #remove falsely, there is a possibility that, a bad value may have lots of pixels around and clould be
         #coreArray = coreArray + 0
 
         labeled_core, num_features = label(coreArray,    structure=s)  # first label core, then expand, otherwise, the expanding would wrongly connected
+        del coreArray
+        gc.collect()
+        if self.saveCore:
+            """
+            """
+            saveCoreName = self.getLabelCoreFITSName()
+            fits.writeto(  saveCoreName , labeled_core, header=COHead, overwrite=True)
+            self.coreFITS = saveCoreName
+
 
         selectExpand = np.logical_and(labeled_core == 0, goodValues)
+        del goodValues
+        gc.collect()
         # expand labeled_core
         # coreLabelCopy=labeled_core.copy()
 
@@ -231,18 +306,32 @@ class  MWISPDBSCAN(object):
         # only expanded, one time
         labeled_core[selectExpand] = expandTry[selectExpand]
 
-        labeled_array = labeled_core
-
-
+        ####
 
         print num_features, "features found!"
 
         saveLabelFITSName=self.getLabelFITSName()
-        fits.writeto(  saveLabelFITSName , labeled_array, header=COHead, overwrite=True)
+        fits.writeto(  saveLabelFITSName , labeled_core, header=COHead, overwrite=True)
         self.labelFITSName=saveLabelFITSName
+
+        del labeled_core
+        gc.collect()
 
         return saveLabelFITSName
 
+
+    def getLabelCoreFITSName(self ):
+        """
+        used to get the DBSCAN label fits name, when you do not want to rerun the DBSCAN process
+        :return:
+        """
+        baseName  =  os.path.basename( self.rawCOFITS )
+        saveTag = self.getDBSCANTag( )
+
+        saveLabelFITSNameCore = os.path.join(self.processPath,baseName[0:-5]+saveTag+"_core.fits")
+
+
+        return saveLabelFITSNameCore
 
 
     def getLabelFITSName(self, doClean=False):
@@ -405,7 +494,7 @@ class  MWISPDBSCAN(object):
         #calculate the area of one pixel
 
         sizeL=  headCluster["CDELT1"]*60
-        sizeB= headCluster["CDELT2"]*60
+        sizeB=  headCluster["CDELT2"]*60
 
         sizeB=abs(sizeB) #in arcmin
         sizeL=abs(sizeL) #in arcmin
@@ -425,12 +514,19 @@ class  MWISPDBSCAN(object):
 
         if len(dataCO.shape)==4:
             dataCO=dataCO[0]
-        dataZero = np.zeros_like(dataCO)
 
+        if self.rmsFITS is not None :
+            print "Using rms fits...", self.rmsFITS
+            rmsData, rmsHead = myFITS.readFITS(self.rmsFITS)
+            self.rmsData = rmsData
 
-        if self.averageRMS is not None and self.rawCOFITS is not None:
+        else:
 
-            self.getUniformRMSData(self.averageRMS,Ny,Nx)
+            if self.averageRMS is not None and self.rawCOFITS is not None:
+
+                rmsData=self.getUniformRMSData(self.averageRMS,Ny,Nx)
+
+                self.rmsData=rmsData
 
 
         if self.rmsData is None:
@@ -452,6 +548,11 @@ class  MWISPDBSCAN(object):
         clusterIndex1D = np.where(dataCluster > minV)
         clusterValue1D = dataCluster[clusterIndex1D]
 
+        del dataCluster
+        gc.collect()
+        dataZero = np.zeros_like(dataCO) #
+
+
         Z0, Y0, X0 = clusterIndex1D
 
         newTB =  self.getEmptyCat(getEmptyRow=False )
@@ -472,7 +573,7 @@ class  MWISPDBSCAN(object):
         # print "Total number of Good Trunks? ",len(GoodIDs)
 
         # dataCO,headCO=doFITS.readFITS( CO12FITS )
-        widgets = ['Recalculating cloud parameters: ', Percentage(), ' ', Bar(marker='0', left='[', right=']'), ' ', ETA(),
+        widgets = ['Calculating cloud parameters: ', Percentage(), ' ', Bar(marker='0', left='[', right=']'), ' ', ETA(),
                    ' ', FileTransferSpeed()]  # see docs for other options
 
         catTB = newTB
@@ -491,6 +592,8 @@ class  MWISPDBSCAN(object):
         pbar.start()
 
         for i in range(len(GoodIDs)):
+
+
 
             # i would be the newID
             newID = GoodIDs[i]
@@ -571,6 +674,8 @@ class  MWISPDBSCAN(object):
             # newRow["area_accurate"]= area_accurate
 
             sumCO = np.sum(coValues,dtype=np.float64) #float32 is not enough for large molecular clouds
+
+
 
             Vcen, Vrms = doFITS.weighted_avg_and_std(cloudV, coValues)
             Bcen, Brms = doFITS.weighted_avg_and_std(cloudB, coValues)
@@ -1116,6 +1221,278 @@ class  MWISPDBSCAN(object):
 
 
 
+    def recoverNames(self,rawCOFITS,outPath,cutoff=2,minPts=4,contype=1):
+        """
+
+        :param rawCOFITS:
+        :param outPath:
+        :param cutoff:
+        :param minPts:
+        :param contype:
+        :return:
+        """
+        self.rawCOFITS= rawCOFITS
+        self.processPath =  outPath
+        self.setDBSCANParameters( cutoff_sigma=cutoff,minPts=minPts,connectivity=contype)
+
+        self.labelFITSName =  self.getLabelFITSName(doClean=False )
+        self.cleanFITSName = self.getLabelFITSName(doClean=True)
+        self.cleanCatName =self.cleanFITSName[0:-1]
+
+
+    def pipeLine(self,rawCOFITS, outPath="./",cutoff=2,minPts=4,contype=1,   rmsFITS=None,rmsMean=None):
+        """
+
+        :return:
+        """
+        self.rawCOFITS=rawCOFITS
+
+        self.rmsFITS=rmsFITS
+        self.averageRMS=rmsMean
+
+        self.setDBSCANParameters( cutoff_sigma=cutoff,minPts=minPts,connectivity=contype)
+
+        self.processPath =  outPath
+
+        self.computeDBSCAN()
+        self.getCatFromLabelArray(doClean=True)
+        self.produceCleanFITS()
+
+
+    def getLrangeList(self,lRange, splitN, overLap):
+        """
+        get a list of lRanges
+        :return:
+        """
+        lRangeEdges = np.linspace( min(lRange),max(lRange),  splitN+1   )
+
+        N=len(lRangeEdges)
+
+
+        lList=[]
+
+        for i in range(N-1):
+
+            if i==0:
+                lList.append(  [  lRangeEdges[i] , lRangeEdges[i+1]  + overLap/2.]   )
+                continue
+            if i == N-2:
+                lList.append(  [  lRangeEdges[i] - overLap/2. , lRangeEdges[i+1]  ]   )
+                continue
+
+            lList.append(  [  lRangeEdges[i]  -  overLap/2., lRangeEdges[i+1]  + overLap/2.]   )
+
+
+        return lList
+
+
+
+
+
+
+    def mosaicLabel(self,rawCOFITS,rmsFITS,processPath,splitN=3,overlapL=1):
+        """
+        #split the rawCOFITS into many smaller regions, do DBSCAN speratelay and then merge then togher, need to star from left to right,
+        because the index in the right is used
+        :param rawCOFITS:
+        :param rmsFITS:
+        :return:
+
+        """
+        lRange,Brange,Vrange= doFITS.getLBVRange(rawCOFITS)
+
+
+        lList = self.getLrangeList( lRange,splitN,overlapL  )
+        lList= lList[::-1] #from left to rights
+        ####
+
+        ###
+
+        ####
+        #crop the fits along the velocity
+
+        cropListRaw = []
+        rmsList = []
+
+        ####
+        baseNameRaw=os.path.basename(rawCOFITS)
+        baseNameRMS = os.path.basename(rmsFITS)
+
+        for i in range(splitN):
+
+            cropListRaw.append( os.path.join(processPath, "split_{}_".format(i)+baseNameRaw  )   )
+            rmsList.append(   os.path.join(processPath, "split_{}_".format(i)+baseNameRMS  )     )
+
+
+
+        for i in range(splitN):
+
+            lRnage = lList[i]
+
+            doFITS.cropFITS(rawCOFITS, Lrange=lRnage, outFITS= cropListRaw[i] ,overWrite=True )
+            doFITS.cropFITS2D(rmsFITS, Lrange=lRnage, outFITS= rmsList[i] ,overWrite=True )
+
+
+        ####
+        #do dbscan for each
+
+        labelFITSList=[]
+        coreFITSList = []
+        for i in range(splitN):
+            self.rawCOFITS=cropListRaw[i]
+            self.rmsFITS = rmsList[i]
+            self.processPath= processPath
+            self.saveCore=True
+
+            labelFITSi = self.computeDBSCAN()
+            labelFITSList.append( labelFITSi )
+            coreFITSList.append( self.coreFITS )
+
+        leftFITSRaw= labelFITSList[0]
+        leftFITSCore = coreFITSList[0]
+
+        for i in range( splitN-1):#merge
+
+            if i ==  splitN-1-1:
+                mergei= os.path.join(processPath,"merge_All_rawlabel.fits" )
+                mergeCore= os.path.join(processPath,"merge_All_corelabel.fits" )
+
+            else:
+                mergei= os.path.join(processPath,"merge_{}_rawlabel.fits".format(i))
+                mergeCore=  os.path.join(processPath,"merge_{}_corelabel.fits".format(i))
+
+            self.getMergeData( leftFITSRaw , labelFITSList[i+1],   saveName=mergei)
+            leftFITSRaw=mergei
+
+
+            self.getMergeData( leftFITSCore , coreFITSList[i+1],  saveName=mergeCore)
+            leftFITSCore=mergeCore
+
+            #self.mergeTwoLabelFITS(  leftFITS , labelFITSList[i+1], outFITSName = mergei )
+        ####
+
+        s = generate_binary_structure(3, self.connectivity )
+
+        labelFITSData,headlabel= doFITS.readFITS( mergei )
+
+
+        dataCore,headCore= doFITS.readFITS( mergeCore )
+
+        dataCore = dataCore>0
+        gc.collect()
+        labeled_core, num_features = label(dataCore,    structure=s)
+        gc.collect()
+        labeled_core = dilation(labeled_core, s)
+        gc.collect()
+        labeled_core[labelFITSData==0] = 0
+        gc.collect()
+        fits.writeto(  "mergeTestFinale.fits" , labeled_core, header=headlabel, overwrite=True)
+
+    def mergeTwoLabelFITS(self,fits1,fits2,outFITSName=None ):
+        """
+        :return:
+
+        mergeTwo labe FITS, by default, the overlapping area is along  the Galactic plane
+        # the left fits is the main fits
+        """
+        print fits1, fits2
+
+        #### getLBVRange
+        l1,b1,v1= doFITS.getLBVRange(fits1)
+        l2,b2,v2=  doFITS.getLBVRange(fits2)
+
+        if np.max(l1)<np.max(l2):
+            fits1,fits2 =  fits2, fits1
+            l1,b1,v1= doFITS.getLBVRange(fits1)
+            l2,b2,v2=  doFITS.getLBVRange(fits2)
+
+        ########
+        breakL = np.mean( [min(l1),max(l2)]  )
+        dL= abs(min(l1)-max(l2))
+        mergeLRange = [ breakL+dL/4 , breakL-dL/4 ]
+
+        # check if the data in the range are equal
+        fits1Crop=  "./tmp/merge1Crop.fits"
+        fits2Crop=  "./tmp/merge2Crop.fits"
+
+        doFITS.cropFITS(fits1,Lrange=mergeLRange,outFITS= fits1Crop ,overWrite=True )
+        doFITS.cropFITS(fits2, Lrange=mergeLRange, outFITS = fits2Crop ,overWrite=True )
+
+        data1,head1=doFITS.readFITS(fits1Crop )
+        data2,head2 =doFITS.readFITS(fits2Crop )
+
+        maskData1= data1>0
+        maskData1= maskData1 + 0
+
+
+        maskData2= data2>0
+        maskData2= maskData2 + 0
+
+
+        if not np.sum(maskData2-maskData1)==0 :
+
+            print "DBSCAN results between common area are not equal, exist"
+
+
+        ## start to relabel the fits
+        Part1  = "./tmp/part1Merge.fits"
+        Part2  = "./tmp/part2Merge.fits"
+        doFITS.cropFITS(fits1,Lrange= [max(l1),breakL-dL/4],outFITS= Part1 ,overWrite=True )
+        doFITS.cropFITS(fits2,Lrange= [min(l2),breakL+dL/4],outFITS= Part2 ,overWrite=True )
+
+        dataPart1, headPart1 = doFITS.readFITS( Part1  )
+        dataPart2, headPart2 = doFITS.readFITS( Part2  )
+        ###
+
+        #data1,data2, should be the same
+
+        ####
+        maxPart1= np.max( dataPart1 )
+        dataPart2= dataPart2 + maxPart1
+        dataPart2[ dataPart2 == maxPart1 ] = 0
+
+        data2= data2+maxPart1
+        data2[data2==maxPart1 ] = 0
+        #### #
+        #### fruther modify part2
+
+        indicesOverlap1 =np.where(data1>0)
+        overlappingData1= data1[indicesOverlap1]
+        overLappingCloud1 = np.unique( overlappingData1 )
+        overZ1,overY1,overX1  = indicesOverlap1
+
+        indicesOverlap2 =np.where(data2>0)
+        overlappingData2= data2[indicesOverlap2]
+        overLappingCloud2 = np.unique( overlappingData2 )
+        overZ2,overY2,overX2  = indicesOverlap2
+
+
+
+        indicesPart2 =np.where(dataPart2>0)
+        part2Z,part2Y,part2X  = indicesPart2
+        part2Values = dataPart2[indicesPart2]
+
+        #### clould be very large....
+        indicesPart1 =np.where(dataPart1>0)
+        part1Z,part1Y,part1X   = indicesPart1
+        part1Values = dataPart1[indicesPart1]
+
+        #### first, check multiplicity
+
+        for  eachMC2 in overLappingCloud2:
+            #index in mergeData
+            overlapPart2Indices = self.getIndices(overZ2,overY2,overX2,overlappingData2,eachMC2  )
+
+            overlap1Values = data1[overlapPart2Indices]
+
+            if len(overlap1Values)>=2:  #two values
+                print overlap1Values," corresponds ",eachMC2,"in data 2"
+
+
+
+
+
+                #need to rewrite the
 
 
 
@@ -1123,6 +1500,125 @@ class  MWISPDBSCAN(object):
 
 
 
+        ##########
+
+
+        for  eachMC in overLappingCloud1:
+            #index in mergeData
+
+
+
+
+            part1Indices = self.getIndices(overZ1,overY1,overX1,overlappingData1,eachMC  )
+
+            MC12= data2[ part1Indices ] #to check if the values are the same
+
+            correspondMCs= np.unique(MC12)
+
+            existingMCIndex = correspondMCs    #np.unique(indexPart2)
+
+            if   0 in existingMCIndex :
+
+                print "Wrong, uncompatible fits"
+
+                aaaaaa
+
+            for cloudParat2 in existingMCIndex:
+
+                indicesDataPart2 = self.getIndices(part2Z, part2Y,part2X,part2Values, cloudParat2)
+
+                dataPart2[ indicesDataPart2 ] =   eachMC
+
+
+        fits.writeto(  Part2 , dataPart2, header=headPart2, overwrite=True)
+
+
+        ################
+        ####
+        self.getMergeData(Part1,Part2,breakL,saveName=outFITSName)
+
+        ######
+        #self.labelFITSName= labelFITS
+        #self.getCatFromLabelArray(doClean= True )
+
+    def getMergeData(self,fits1,fits2,breakL=None,saveName=None ):
+        ####
+        """
+
+        :param fits1:
+        :param fits2:
+        :param breakL:
+        :return:
+        """
+
+        l1,b1,v1= doFITS.getLBVRange(fits1)
+        l2,b2,v2=  doFITS.getLBVRange(fits2)
+
+        if np.max(l1)<np.max(l2):
+            fits1,fits2 =  fits2, fits1
+            l1,b1,v1= doFITS.getLBVRange(fits1)
+            l2,b2,v2=  doFITS.getLBVRange(fits2)
+
+        ########
+        breakL = np.mean( [min(l1),max(l2)]  )
+
+
+        Part1  = "./tmp/part1ForMerging.fits"
+        Part2  = "./tmp/part2ForMerging.fits"
+
+
+
+        doFITS.cropFITS(fits1,Lrange= [max(l1),breakL ],outFITS= Part1 ,overWrite=True )
+        doFITS.cropFITS(fits2,Lrange= [min(l2),breakL ],outFITS= Part2 ,overWrite=True )
+
+        #one column is overlapping, removing it
+
+        dataPart1, head1 = doFITS.readFITS( Part1 )
+        dataPart2, head2 = doFITS.readFITS( Part2 )
+
+        maxPart1=np.max(dataPart1)
+        dataPart2= dataPart2 + maxPart1
+        dataPart2[dataPart2==maxPart1] =0
+
+
+        Nz1,Ny1,Nx1 = dataPart1.shape
+
+
+
+        wcs1=WCS(head1,naxis=2)
+        wcs2=WCS(head2,naxis=2)
+        l1Last, _ =  wcs1.wcs_pix2world( Nx1-1,Ny1/2,0 )
+        startPart2Index , _ =  wcs2.wcs_world2pix( l1Last,np.mean(b2),0 )
+
+
+        if startPart2Index < 0 :
+            print "---wrong...existing..."
+            return
+
+        startPart2Index=int(round(startPart2Index)) # cutposition of dataPart2
+        dataPart2 = dataPart2[:,:, startPart2Index+1:]
+
+        newData =  np.concatenate( (dataPart1,dataPart2),axis=2  )
+
+        #newData[:,:,Nx1:]=0
+        #return  newData
+
+
+
+        if saveName is None:
+            saveName="mergedFITS.fits"
+
+        #
+        #s = generate_binary_structure(3, self.connectivity )
+
+        #newData[newData>0] =1
+
+        #labeled_core, num_features = label(newData,    structure=s)  # first label core, then expand, otherwise, the expanding would wrongly connected
+
+
+        fits.writeto( saveName, newData, header=head1, overwrite=True)
+
+        return saveName
 
     def ZZZ(self):
         pass
