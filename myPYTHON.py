@@ -2441,11 +2441,43 @@ class myFITS:
 		return outPut
 
 
+	def calRMS(self, arrayA ):
+		"""
+		:param self:
+		:param arrayA:
+		:return:
+		"""
+
+		return np.sqrt( np.mean( np.square(arrayA ) ) )
 
 
+	def Univ_Rc(self,r, a2=0.96, a3=1.62, R0=8.15):
+		'''
+			Rotation curve moldel
+			r : kpc
+			:type r: object
+			'''
 
+		lambd = (a3 / 1.5) ** 5
+		R0pt = a2 * R0
+		rho = r / R0pt
+		log_lam = np.log10(lambd)
+		term1 = 200.0 * lambd ** 0.41
 
+		top = 0.75 * np.exp(-0.4 * lambd)
+		bot = 0.47 + 2.25 * lambd ** 0.4
+		term2 = np.sqrt(0.80 + 0.49 * log_lam + (top / bot))
 
+		top = 1.97 * rho ** 1.22
+		bot = (rho ** 2 + 0.61) ** 1.43
+		term3 = (0.72 + 0.44 * log_lam) * (top / bot)
+
+		top = rho ** 2
+		bot = rho ** 2 + 2.25 * lambd ** 0.4
+		term4 = 1.6 * np.exp(-0.4 * lambd) * (top / bot)
+
+		Tr = (term1 / term2) * np.sqrt(term3 + term4)
+		return Tr
 
 	def ZZZ(self):
 		#mark the end of the file

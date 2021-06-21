@@ -8,6 +8,8 @@ import matplotlib as mpl
 from pyds9 import DS9
 from spectral_cube import SpectralCube
 
+
+
 from progressbar import * 
 import pymc3 as pm
 from astropy.table import Column
@@ -119,8 +121,9 @@ class GAIADIS:
 
 	tmpPath="/home/qzyan/WORK/myDownloads/GaiaTmpFiles/"
 
+	#offColor="dodgerblue"
 	offColor="dodgerblue"
-
+	onColor= 'green'
 	def __init__(self,sourceName="test",useAV=False, maskFITS=None,useBaseLine=False,disTBPath=None,redoPara=False,foregroundFITS=None): 
 
 
@@ -918,7 +921,7 @@ class GAIADIS:
 
 
 
-		self.drawCloudFITS( fitsName, axBack,backData, backHead,lRange,bRange,noiseLevel,signalLevel , gaiaOnsource,gaiaOffsource, maskFITS=maskFITS) 
+		self.drawCloudFITS( fitsName, axBack,backData, backHead,lRange,bRange,noiseLevel,signalLevel , gaiaOnsource,gaiaOffsource, maskFITS=maskFITS )
 
 
 		if saveFigureName==None:
@@ -2076,7 +2079,8 @@ class GAIADIS:
 		#self.setAxColor(ax,"cyan")
 
 
-	def drawCloudFITS(self,fitsName, axBack,backData, backHead,lRange,bRange,noiseLevel,signalLevel,gaiaOnsource,gaiaOffsource, maskFITS=None,drawOffStar=True,vlsr=None):
+
+	def drawCloudFITS(self,fitsName, axBack,backData, backHead,lRange,bRange,noiseLevel,signalLevel,gaiaOnsource,gaiaOffsource, maskFITS=None,drawOffStar=True,vlsr=None, onOFFdotSize =  3.5 ):
 		"""
 		"""
 		if len( backData.shape)==3:
@@ -2156,7 +2160,7 @@ class GAIADIS:
 
 			cropDataMask,cropHeadMask=myFITS.readFITS(outMaskFITS)
 
-			axBack[WCS(cropHeadMask)].contour(cropDataMask,  [1],cmap=cmap,vmin= 0.99,vmax=signalLevel*1.1, linewidths=0.5)
+			axBack[WCS(cropHeadMask)].contour(cropDataMask,  [1],cmap=cmap,vmin= 0.99,vmax=signalLevel*1.1, linewidths= 0.7 )
 
 		
 		cmap2 = plt.cm.winter
@@ -2171,7 +2175,7 @@ class GAIADIS:
 
 
 
-		axBack[WCS(cropHead)].contour(cropData*cropDataMask,  [  signalLevel],cmap=cmap2,vmin=noiseLevel*0.7,vmax=signalLevel*1.1, linewidths=0.3)
+		axBack[WCS(cropHead)].contour(cropData*cropDataMask,  [  signalLevel],cmap=cmap2,vmin=noiseLevel*0.7,vmax=signalLevel*1.1, linewidths=0.8)
 
 		#axBack[WCS(cropHead)].contour(cropData,  [noiseLevel ],cmap=cmap,vmin=noiseLevel*0.7,vmax=signalLevel*1.1, linewidths=0.1)
 		#axBack[WCS(cropHeadMask)].contour
@@ -2179,14 +2183,14 @@ class GAIADIS:
 
 
 		
-		axBack["gal"].scatter( drawOn[self.GAIA_l],drawOn[self.GAIA_b],s=0.5,color='green' ,marker='o' ,lw=0.3  )
+		axBack["gal"].scatter( drawOn[self.GAIA_l],drawOn[self.GAIA_b],s= onOFFdotSize ,color= self.onColor ,edgecolors="lime",marker='o' ,lw=0.3, alpha= 0.8 )
 		
 		
 
 		drawOff=self.getRandomRows(gaiaOffsource,N=3000)
 		
 		if drawOffStar:
-			axBack["gal"].scatter( drawOff[self.GAIA_l],drawOff[self.GAIA_b],s=0.5,color=self.offColor ,marker='o'   ,lw=0.3)
+			axBack["gal"].scatter( drawOff[self.GAIA_l],drawOff[self.GAIA_b],s= onOFFdotSize ,color=self.offColor ,edgecolors="cyan",marker='o'   ,lw=0.3 , alpha= 0.8 )
 		
 		#cmap = plt.cm.winter
 		#cmap.set_bad('white',1.)
